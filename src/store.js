@@ -2,13 +2,15 @@
 // Хранится в localStorage (если доступен), иначе в памяти. «Сбросить демо» возвращает пресет.
 import {
   BONUS, DEVICE_TYPES, EXAMPLES, WALLET, WEIGHT_KG, PARTS, SAMPLE_PASSPORT, SAMPLE_TAG_NO,
-  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, SCHOOLS, PILOT, SHOP_ITEMS,
+  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, PILOT, SHOP_ITEMS,
 } from './data.js';
+import { LEAGUE, pointById } from './geo/points.js';
 import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
 import { DAY, pad, num } from './lib/format.js';
 
-const KEY = 'qaita-v1';
+const KEY = 'qaita-v2';
+const VERSION = 2; // 2: точки сдачи на карте Актобе
 const listeners = new Set();
 let state;
 
@@ -65,7 +67,7 @@ function seedBank(t) {
 export function initialState(preset = 'ready') {
   const t = now();
   const s = {
-    v: 1,
+    v: VERSION,
     preset,
     tazaru: false,
     seq: { device: 786, part: 4513, tag: 143 }, // демо: следующие номера после образцов из документации
@@ -74,16 +76,16 @@ export function initialState(preset = 'ready') {
     donations: [],
     hub: { queue: seedHub(t), selected: null },
     bank: seedBank(t),
-    akimat: { kg: { reverse: 0, osi: 0, amnesty: 0, requests: 0, hub: 0 }, events: [], schools: Object.fromEntries(SCHOOLS.map((n) => [n, 0])) },
+    akimat: { kg: { reverse: 0, osi: 0, amnesty: 0, requests: 0, hub: 0 }, events: [] },
     shop: { orders: [], crewEarned: 0 },
     osi: { balance: 0, tags: [] },
     test30Runs: 0,
   };
   if (preset === 'ready') {
     // Решение команды 18.11: в демо-кошельке «сдача ноутбука +200» и «роялти +1 120» (итого 1 320)
-    const d = { id: uid(), ts: t - 3 * DAY, deviceNo: 'D-000780', model: 'Lenovo IdeaPad', type: 'laptop', state: 'разбит корпус', tag: 'donor', method: 'school', school: SCHOOLS[0], exampleId: 'lenovo', status: 'sold', bonus: DEMO_WALLET.laptopBonus };
+    const school = LEAGUE[0]; // демо: школа из Донор-лиги для сдачи из примера
+    const d = { id: uid(), ts: t - 3 * DAY, deviceNo: 'D-000780', model: 'Lenovo IdeaPad', type: 'laptop', state: 'разбит корпус', tag: 'donor', method: 'school', pointId: school.id, point: school.name, address: school.address || '', exampleId: 'lenovo', status: 'sold', bonus: DEMO_WALLET.laptopBonus };
     s.donations.push(d);
-    s.akimat.schools[SCHOOLS[0]] += 1;
     s.wallet.tx.push(
       { id: uid(), ts: t - 3 * DAY + 3600000, kind: 'accrual', title: 'Сдача ноутбука', sub: 'Lenovo IdeaPad · D-000780', amount: DEMO_WALLET.laptopBonus, status: 'Зачислено' },
       { id: uid(), ts: t - DAY, kind: 'royalty', title: 'Роялти', sub: 'Детали Lenovo IdeaPad проданы', amount: DEMO_WALLET.laptopRoyalty, status: 'Зачислено' },
@@ -95,7 +97,7 @@ export function initialState(preset = 'ready') {
 }
 
 state = read() || initialState('ready');
-if (!state || state.v !== 1) state = initialState('ready');
+if (!state || state.v !== VERSION) state = initialState('ready');
 
 // ── Подписка ────────────────────────────────────────────────────────────────
 export const getState = () => state;
@@ -151,7 +153,8 @@ export function donationsThisMonth() {
 }
 
 // ── Житель ──────────────────────────────────────────────────────────────────
-export function submitDonation({ exampleId, manual, method, school }) {
+// pointId — школа Донор-лиги или бокс в ЦОН/вузе на карте (для вывоза крупной техники — нет)
+export function submitDonation({ exampleId, manual, method, pointId }) {
   if (donationsThisMonth() >= WALLET.monthlyDeviceLimit) {
     const err = new Error('limit');
     err.code = 'limit';
@@ -163,13 +166,14 @@ export function submitDonation({ exampleId, manual, method, school }) {
   const stateText = ex ? ex.state : manual.stateText;
   const tag = ex ? ex.tag : suggestTag(manual.type, manual.condition);
   const big = DEVICE_TYPES[type].big;
+  const pt = big ? null : pointById(pointId);
+  if (!big && !pt) throw new Error('point');
   const d = {
     id: uid(), ts: now(), deviceNo: nextDevice(), model, type, state: stateText, tag, method,
-    school: method === 'school' ? school : null, exampleId: ex ? ex.id : null,
+    pointId: pt?.id || null, point: pt?.name || null, address: pt?.address || null, exampleId: ex ? ex.id : null,
     status: big ? 'awaiting-pickup' : 'sent', bonus: DEVICE_TYPES[type].bonus * mult(),
   };
   state.donations.push(d);
-  if (d.school) state.akimat.schools[d.school] = (state.akimat.schools[d.school] || 0) + 1;
   if (!big) {
     state.hub.queue.unshift({
       id: uid(), deviceNo: d.deviceNo, exampleId: d.exampleId, model, type, state: stateText,
@@ -178,6 +182,13 @@ export function submitDonation({ exampleId, manual, method, school }) {
   }
   commit({ type: 'donation', donation: d });
   return d;
+}
+
+// Сколько вещей сдано в каждую точку (школы — для рейтинга Донор-лиги и карты акимата)
+export function pointCounts() {
+  const c = {};
+  for (const d of state.donations) if (d.pointId) c[d.pointId] = (c[d.pointId] || 0) + 1;
+  return c;
 }
 
 export function residentPickupDone(donationId) {

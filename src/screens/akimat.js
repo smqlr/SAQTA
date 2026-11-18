@@ -3,8 +3,12 @@ import { PILOT, ROP, SCENARIOS, BONUS_TOTALS, SCHOOL_LEAGUE, WEIGHT_KG } from '.
 import { num, num1, num2, tenge, dateTime, esc } from '../lib/format.js';
 import { ICON } from '../lib/icons.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
+import { pointCounts } from '../store.js';
+import { LEAGUE, BOXES, HUB, AKIMAT_PT, LANDFILLS } from '../geo/points.js';
+import { geo } from '../lib/map/geo.js';
+import { mountMap, setPins, setArea, fitTo } from '../lib/map/view.js';
 
-let ui = { scenario: 'base' };
+let ui = { scenario: 'base', fitted: false };
 let lastKg = null;
 export function home() {}
 
@@ -18,7 +22,9 @@ export function render(el, st) {
   lastKg = kg;
   const sc = SCENARIOS.find((s) => s.id === ui.scenario);
   const events = [...st.akimat.events].reverse().slice(0, 5);
-  const schools = Object.entries(st.akimat.schools).sort((a, b) => b[1] - a[1]);
+  const counts = pointCounts();
+  const schools = LEAGUE.map((s) => [s, counts[s.id] || 0]).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const viaPoints = Object.values(counts).reduce((a, b) => a + b, 0);
   const maxFund = Math.max(...SCENARIOS.map((s) => s.fund));
 
   const maxT = Math.max(...PILOT.channels.map((x) => x.t));
@@ -55,9 +61,16 @@ export function render(el, st) {
       </div>
       <div class="card">
         <div class="card-title"><h2>Рейтинг школ</h2><span class="xs muted">Донор-лига</span></div>
-        <div class="list">${schools.map(([name, n], i) => `<div class="li"><div class="ico num-ico">${i + 1}</div><div class="grow"><b>${esc(name)}</b></div><div class="amt">${num(n)} шт.</div></div>`).join('')}</div>
+        <div class="list">${schools.map(([s, n], i) => `<div class="li"><div class="ico num-ico">${i + 1}</div><div class="grow"><b>${esc(s.name)}</b><div class="xs muted">${esc(s.address || '')}</div></div><div class="amt">${num(n)} шт.</div></div>`).join('')}</div>
         <p class="xs muted mt-8">${SCHOOL_LEAGUE.schools} школ в Донор-лиге. Классы-победители получают ${SCHOOL_LEAGUE.prize}.</p>
       </div>
+    </section>
+
+    <section class="card span-12" aria-label="Карта сбора">
+      <div class="card-title"><h2>Карта сбора</h2>
+        <div class="legend"><span><i class="legend-dot p-school"></i>школы Донор-лиги · ${LEAGUE.length}</span><span><i class="legend-dot p-box"></i>боксы в ЦОН и вузах · ${BOXES.length}</span><span><i class="legend-dot p-hub"></i>хаб</span><span><i class="legend-dot p-danger"></i>полигон ТБО</span></div></div>
+      <div class="map-card tall"><div class="map-slot" data-map></div></div>
+      <p class="xs muted mt-8">Сдано через школы и боксы: ${num(viaPoints)} шт. Цифра у точки — сколько вещей туда сдали. Сейчас техника из баков уходит на полигон ТБО, где мусор горит годами. Адреса: © участники OpenStreetMap, ${geo().date.split('-').reverse().join('.')}.</p>
     </section>
 
     <section class="card span-12" aria-label="Калькулятор сценариев">
@@ -120,8 +133,26 @@ export function render(el, st) {
     },
   });
 
+  attachMap(el, counts);
+
   el.onclick = (e) => {
     const b = e.target.closest('[data-sc]');
     if (b) { ui.scenario = b.dataset.sc; render(el, st); }
   };
+}
+
+function attachMap(el, counts) {
+  const slot = el.querySelector('[data-map]');
+  if (!slot) return;
+  const m = mountMap(slot, 'akimat', { zoom: 12 });
+  const pts = [
+    ...LEAGUE.map((p) => ({ ...p, count: counts[p.id] || 0 })),
+    ...BOXES.map((p) => ({ ...p, count: counts[p.id] || 0 })),
+    { ...HUB, id: 'hub' },
+    { ...AKIMAT_PT, id: 'akimat', name: AKIMAT_PT.name },
+    ...LANDFILLS.map((l, i) => ({ ...l, id: `lf${i}`, name: l.official ? `Полигон ТБО «${l.official}»` : 'Полигон ТБО' })),
+  ];
+  setPins(m, 'points', pts);
+  setArea(m, 'landfill', LANDFILLS[0] ? [LANDFILLS[0].lat, LANDFILLS[0].lon] : null, { label: 'Полигон ТБО' });
+  if (!ui.fitted) { ui.fitted = true; fitTo(m, [...LEAGUE, ...BOXES, ...LANDFILLS], { maxZoom: 13, padding: 20 }); }
 }

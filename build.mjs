@@ -19,12 +19,16 @@ const js = await build({
   write: false,
   legalComments: 'none',
   charset: 'utf8',
+  loader: { '.gz': 'binary' }, // данные карты Актобе: gzip внутри файла, распаковка в браузере
 });
 
-const [tpl, css] = await Promise.all([
+const [tpl, appCss, leafletCss] = await Promise.all([
   readFile(join(root, 'src/index.html'), 'utf8'),
   readFile(join(root, 'src/styles.css'), 'utf8'),
+  readFile(join(root, 'node_modules/leaflet/dist/leaflet.css'), 'utf8'),
 ]);
+// Стандартные картинки Leaflet (маркеры, слои) не используются — убираем ссылки, чтобы файл не ходил в сеть
+const css = `${leafletCss.replace(/url\([^)]*\)/g, 'none')}\n${appCss}`;
 
 // Вставляем через функции-замены, чтобы символы `$` в коде не трактовались как шаблоны замены
 const jsCode = js.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');

@@ -68,10 +68,34 @@ await page.click('[data-example="lenovo"]');
 ok((await page.textContent('#view')).includes('+200'), 'в карточке +200 бонусов за ноутбук');
 await shot('02-card');
 await page.click('[data-go="method"]');
+await page.waitForSelector('.qmap .leaflet-tile-loaded');
+ok((await page.$$('.qmap .qpin')).length === 40, 'на карте 40 школ Донор-лиги');
+const painted = await page.$$eval('.qmap canvas.leaflet-tile', (cs) => cs.filter((c) => {
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  const seen = new Set();
+  for (let i = 0; i < d.length; i += 64) seen.add(`${d[i]},${d[i + 1]},${d[i + 2]}`);
+  return seen.size > 4; // улицы, дома, зелень — не однотонная заливка
+}).length);
+ok(painted > 0, `плитки карты нарисованы из встроенных данных OSM (${painted})`);
+const dists = await page.$$eval('.pick-row', (rows) => rows.map((r) => {
+  const t = r.querySelector('.nowrap').textContent.replace(/\s/g, '').replace(',', '.');
+  return t.endsWith('км') ? parseFloat(t) * 1000 : parseFloat(t);
+}));
+ok(dists.length === 4 && dists.every((d, i) => i === 0 || d >= dists[i - 1]), `ближайшие школы по расстоянию: ${dists.join(', ')} м`);
+await page.click('.pick-row:nth-child(2)');
+const chosen = (await page.textContent('.pick-row[aria-pressed="true"] b')).trim();
+await page.click('[data-method="box"]');
+await page.waitForTimeout(200);
+ok((await page.$$('.qmap .qpin')).length === 5, 'боксы в ЦОН и вузах: 5 на карте');
+await page.click('[data-method="school"]');
+await page.waitForTimeout(200);
+await page.click('.pick-row:nth-child(2)');
 await page.click('[data-submit]');
 const receiptNo = (await page.textContent('.receipt h2')).trim();
 ok(/^D-\d{6}$/.test(receiptNo), `квитанция ${receiptNo}`);
 ok(await page.isVisible('.receipt svg.qr'), 'QR-код нарисован');
+const receiptText = await page.textContent('.receipt');
+ok(receiptText.includes(chosen) && /улица|проспект|микрорайон|переулок/.test(receiptText), `в квитанции школа и адрес: ${chosen}`);
 await shot('02-receipt');
 
 console.log('3. Хаб: триаж, «Спроси устройство», ТЕСТ-30, банк деталей');
@@ -153,6 +177,25 @@ const checked = await page.$$eval('.shop-item[aria-checked="true"]', (els) => el
 ok(checked.length === 1 && checked[0] === 'tv', `выбран один товар: ${checked.join(', ')}`);
 ok((await page.textContent('[data-order]')).includes('телевизор'), 'кнопка заказа называет выбранный товар');
 await shot('06-shop');
+
+console.log('6в. Карта сбора у акимата');
+await go('akimat');
+await page.waitForSelector('.qmap .leaflet-tile-loaded');
+const akPins = (await page.$$('.qmap .qpin')).length;
+ok(akPins >= 47, `на карте акимата ${akPins} точек: школы, боксы, хаб, акимат, полигон`);
+ok((await page.textContent('[aria-label="Карта сбора"]')).includes('Сдано через школы и боксы: 1'), 'счётчик сдач через точки: 1');
+ok((await page.textContent('#view')).includes(chosen), `в рейтинге школ — ${chosen}`);
+
+console.log('6г. Пункты приёма на карте');
+await go('resident');
+await page.click('[data-go="points"]');
+await page.waitForSelector('.qmap .leaflet-tile-loaded');
+ok((await page.$$('.qmap .qpin')).length === 40, 'страница пунктов: 40 школ');
+await page.click('[data-tab="box"]');
+await page.waitForTimeout(200);
+const boxes = await page.$$eval('.li-btn b', (els) => els.map((e) => e.textContent));
+ok(boxes.length === 5 && boxes.some((b) => b.includes('обслуживания населения')) && boxes.some((b) => b.includes('университет')), `боксы: ${boxes.length} (ЦОН и вузы)`);
+await page.click('[data-go="start"]');
 
 console.log('7. ОСИ: бирка у бака');
 await go('osi');
