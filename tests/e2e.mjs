@@ -49,8 +49,16 @@ console.log('1. Чистый старт');
 await reset('clean');
 ok((await balance()) === 0, 'баланс 0');
 
-console.log('2. Житель: пример «Lenovo IdeaPad» → школьный короб → QR');
+console.log('2. Житель: подтемы, пример «Lenovo IdeaPad» → школьный короб → QR');
 await go('resident');
+const cats = await page.$$eval('.cat', (els) => els.map((e) => e.dataset.cat));
+ok(cats.length === 5, `подтем техники: ${cats.length}`);
+for (const c of cats) {
+  await page.click(`[data-cat="${c}"]`);
+  const n = await page.$$eval('.examples .ex', (els) => els.length);
+  ok(n >= 4 && n <= 5, `подтема «${await page.textContent(`[data-cat="${c}"]`)}»: ${n} устройств`);
+}
+await page.click('[data-cat="digital"]');
 await page.click('[data-example="lenovo"]');
 ok((await page.textContent('#view')).includes('+200'), 'в карточке +200 бонусов за ноутбук');
 await shot('02-card');
@@ -128,6 +136,19 @@ await go('akimat');
 ok((await page.textContent('[data-testid="tonnes"]')).startsWith('0,05'), 'на счётчике акимата 0,05 т (+50 кг)');
 await shot('06-akimat');
 
+console.log('6б. Каталог магазина: выбирается ровно один товар');
+await go('shop');
+await page.click('button[data-mode="buyer"]');
+await page.click('[data-new]');
+const items = await page.$$eval('.shop-item', (els) => els.length);
+ok(items >= 5, `в каталоге ${items} товаров`);
+await page.click('[data-item="freezer"]');
+await page.click('[data-item="tv"]');
+const checked = await page.$$eval('.shop-item[aria-checked="true"]', (els) => els.map((e) => e.dataset.item));
+ok(checked.length === 1 && checked[0] === 'tv', `выбран один товар: ${checked.join(', ')}`);
+ok((await page.textContent('[data-order]')).includes('телевизор'), 'кнопка заказа называет выбранный товар');
+await shot('06-shop');
+
 console.log('7. ОСИ: бирка у бака');
 await go('osi');
 await page.click('[data-mark]');
@@ -144,6 +165,7 @@ ok((await balance()) === 1320, 'пресет «готовый кошелёк»: 
 console.log('9. Лимит 10 устройств в месяц');
 await reset('clean');
 await go('resident');
+await page.click('[data-cat="home"]');
 let limitHit = false;
 for (let i = 0; i < 11; i++) {
   await page.click('[data-example="kettle"]');

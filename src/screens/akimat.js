@@ -4,7 +4,6 @@ import { num, num1, num2, tenge, dateTime, esc } from '../lib/format.js';
 import { demoMark } from '../lib/ui.js';
 import { ICON } from '../lib/icons.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
-import { fridgeRopTenge } from '../store.js';
 
 let ui = { scenario: 'base' };
 let lastKg = null;
@@ -43,7 +42,7 @@ export function render(el, st) {
 
       <div class="section-label mt-16">Последние поступления</div>
       ${events.length ? `<div class="list">${events.map((e) => `<div class="li"><div class="ico">${ICON.scale}</div><div class="grow small"><b>+${num(e.kg)} кг</b> · ${esc(e.text)}
-        ${e.channel === 'reverse' && e.kg === WEIGHT_KG.demoFridge ? `<div class="xs muted">РОП за этот холодильник ≈ ${tenge(fridgeRopTenge())} на всю цепочку (${num(e.kg)} кг × ${num2(ROP.fridgeRate)} ₸ за т)</div>` : ''}
+        ${e.rop != null ? `<div class="xs muted">РОП за эту технику ≈ ${tenge(e.rop)} на всю цепочку (${num(e.kg)} кг × ${num2(e.rate)} ₸ за т)</div>` : ''}
         <div class="xs faint">${dateTime(e.ts)}</div></div></div>`).join('')}</div>`
         : '<div class="empty">Пока пусто. Сдайте технику на экранах «Житель», «Магазин» или «ОСИ».</div>'}
     </section>

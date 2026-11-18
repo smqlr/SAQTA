@@ -2,7 +2,7 @@
 // Хранится в localStorage (если доступен), иначе в памяти. «Сбросить демо» возвращает пресет.
 import {
   BONUS, DEVICE_TYPES, EXAMPLES, WALLET, WEIGHT_KG, PARTS, SAMPLE_PASSPORT, SAMPLE_TAG_NO,
-  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, SCHOOLS, PILOT,
+  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, SCHOOLS, PILOT, SHOP_ITEMS,
 } from './data.js';
 import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
@@ -126,9 +126,9 @@ function credit(amount, kind, title, sub) {
 function note(title, body, kind = 'info') {
   state.notes.push({ id: uid(), ts: now(), title, body, kind, unread: true });
 }
-function addKg(channel, kg, text) {
+function addKg(channel, kg, text, extra = {}) {
   state.akimat.kg[channel] = Math.round((state.akimat.kg[channel] + kg) * 100) / 100;
-  state.akimat.events.push({ ts: now(), channel, kg, text });
+  state.akimat.events.push({ ts: now(), channel, kg, text, ...extra });
 }
 const nextDevice = () => `D-${pad(state.seq.device++)}`;
 const nextPart = () => `AQ-${pad(state.seq.part++)}`;
@@ -290,8 +290,16 @@ export function markNotesRead() {
 export const unreadCount = () => state.notes.filter((n) => n.unread).length;
 
 // ── Магазин и экипаж ────────────────────────────────────────────────────────
-export function placeOrder(pickupOld) {
-  const o = { id: uid(), ts: now(), item: 'Холодильник', pickupOld, crewDone: false, no: `${state.shop.orders.length + 1}` };
+export const ropRate = (item) => ROP.rows.find((r) => r.name === item.rop)?.rate ?? null;
+export const ropTenge = (kg, rate) => (rate == null ? null : Math.round((kg / 1000) * rate)); // ставка РОП × вес
+
+export function placeOrder(itemId, pickupOld) {
+  const it = SHOP_ITEMS.find((x) => x.id === itemId) || SHOP_ITEMS[0];
+  const rate = ropRate(it);
+  const o = {
+    id: uid(), ts: now(), itemId: it.id, item: it.name, kg: it.kg, rate, rop: ropTenge(it.kg, rate),
+    pickupOld, crewDone: false, no: `${state.shop.orders.length + 1}`,
+  };
   state.shop.orders.push(o);
   commit({ type: 'order', order: o });
   return o;
@@ -301,10 +309,9 @@ export function crewPickup(orderId) {
   if (!o || o.crewDone || !o.pickupOld) return;
   o.crewDone = true;
   state.shop.crewEarned += PILOT.crewPremium;
-  addKg('reverse', WEIGHT_KG.demoFridge, 'Холодильник: «Обратный рейс»');
+  addKg('reverse', o.kg, `${o.item}: «Обратный рейс»`, { rop: o.rop, rate: o.rate });
   commit({ type: 'crew', order: o });
 }
-export const fridgeRopTenge = () => Math.round((WEIGHT_KG.demoFridge / 1000) * ROP.fridgeRate); // ставка РОП × вес
 
 // ── ОСИ ─────────────────────────────────────────────────────────────────────
 export function osiMark({ kind, what, photo }) {

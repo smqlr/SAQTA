@@ -45,6 +45,7 @@ export const WEIGHT_KG = {
   residentPickup: 45, // док: там же — заявки жителей на вывоз, средний вес 45 кг
   osiBig: 35, // док: там же — «Бирка у бака», крупная вещь 35 кг
   demoFridge: 50, // док: «Сценарий демо» — на панели счётчик показывает +50 кг к цели
+  reverseAvg: 39.2, // док: «Обратный рейс» — средний вес единицы крупной техники 39,2 кг
 };
 
 export const DEVICE_TYPES = {
@@ -153,6 +154,19 @@ export const ROP = {
   mrp: 4325, // док: МРП 2026 = 4 325 ₸
 };
 
+// ── Магазин: «Обратный рейс» ────────────────────────────────────────────────
+// Каталог крупной техники. Вес: холодильник — +50 кг из сценария демо, остальное — средний вес по каналу
+// (39,2 кг, точный — по акту). Ставка РОП — по виду техники из таблицы «Где лежат 4 000 тонн».
+export const SHOP_ITEMS = [
+  { id: 'fridge', name: 'Холодильник', art: 'fridge', rop: 'Холодильники и кондиционеры', kg: WEIGHT_KG.demoFridge },
+  { id: 'freezer', name: 'Морозильник', art: 'freezer', rop: 'Холодильники и кондиционеры', kg: WEIGHT_KG.reverseAvg },
+  { id: 'washer', name: 'Стиральная машина', art: 'washer', rop: 'Крупная: стиральные машины, плиты', kg: WEIGHT_KG.reverseAvg },
+  { id: 'tv', name: 'Телевизор', art: 'tvNew', rop: 'Телевизоры и мониторы', kg: WEIGHT_KG.reverseAvg },
+  { id: 'stove', name: 'Плита', art: 'stove', rop: 'Крупная: стиральные машины, плиты', kg: WEIGHT_KG.reverseAvg },
+  { id: 'dishwasher', name: 'Посудомоечная машина', art: 'dishwasher', rop: 'Крупная: стиральные машины, плиты', kg: WEIGHT_KG.reverseAvg },
+  { id: 'ac', name: 'Кондиционер', art: 'ac', rop: 'Холодильники и кондиционеры', kg: WEIGHT_KG.reverseAvg },
+];
+
 // ── Сценарии ────────────────────────────────────────────────────────────────
 // док: таблица сценариев и «Фонд бонусов … во всех сценариях»
 export const SCENARIOS = [
@@ -190,6 +204,7 @@ $soh = [math]::Round($full / $design * 100)
 export const EXAMPLES = [
   {
     id: 'a50',
+    cat: 'digital',
     model: 'Samsung Galaxy A50',
     state: 'не включается',
     type: 'phone',
@@ -204,6 +219,7 @@ export const EXAMPLES = [
   },
   {
     id: 'lenovo',
+    cat: 'digital',
     model: 'Lenovo IdeaPad',
     state: 'разбит корпус',
     type: 'laptop',
@@ -220,6 +236,7 @@ export const EXAMPLES = [
   },
   {
     id: 'iphone11',
+    cat: 'digital',
     model: 'iPhone 11',
     state: 'работает',
     type: 'phone',
@@ -231,6 +248,7 @@ export const EXAMPLES = [
   },
   {
     id: 'nokia105',
+    cat: 'digital',
     model: 'Nokia 105',
     state: 'кнопочный',
     type: 'phone',
@@ -240,6 +258,7 @@ export const EXAMPLES = [
   },
   {
     id: 'scooter',
+    cat: 'other',
     model: 'Батарея самоката',
     state: 'вздута',
     type: 'small',
@@ -249,6 +268,7 @@ export const EXAMPLES = [
   },
   {
     id: 'kettle',
+    cat: 'home',
     model: 'Чайник',
     state: 'не греет',
     type: 'small',
@@ -256,6 +276,37 @@ export const EXAMPLES = [
     art: 'kettle',
     parts: [],
   },
+  // Дополнительные устройства по подтемам. Цифр нет: бонус берётся из вида техники (DEVICE_TYPES),
+  // бирка — подсказка, её подтверждает техник хаба.
+  ...[
+    ['pc', 'digital', 'Системный блок', 'не включается', 'laptop', 'donor', 'pc'],
+    ['fridge', 'home', 'Холодильник', 'не морозит', 'big', 'raw', 'fridge'],
+    ['washer', 'home', 'Стиральная машина', 'течёт', 'big', 'raw', 'washer'],
+    ['iron', 'home', 'Утюг', 'не включается', 'small', 'raw', 'iron'],
+    ['vacuum', 'home', 'Пылесос', 'слабо тянет', 'small', 'raw', 'vacuum'],
+    ['tv', 'screens', 'Телевизор', 'полосы на экране', 'screen', 'donor', 'tv'],
+    ['monitor', 'screens', 'Монитор', 'работает', 'screen', 'whole', 'monitor'],
+    ['aio', 'screens', 'Моноблок', 'не включается', 'laptop', 'donor', 'aio'],
+    ['ebook', 'screens', 'Электронная книга', 'разбит экран', 'phone', 'donor', 'ebook'],
+    ['headphones', 'gadgets', 'Беспроводные наушники', 'не заряжаются', 'small', 'raw', 'headphones'],
+    ['speaker', 'gadgets', 'Bluetooth-колонка', 'нет звука', 'small', 'raw', 'speaker'],
+    ['console', 'gadgets', 'Игровая приставка', 'не включается', 'small', 'donor', 'console'],
+    ['watch', 'gadgets', 'Умные часы', 'разбит экран', 'small', 'raw', 'watch'],
+    ['camera', 'gadgets', 'Фотоаппарат', 'работает', 'small', 'whole', 'camera'],
+    ['aa', 'other', 'Аккумуляторы АА', 'не держат заряд', 'small', 'raw', 'aa'],
+    ['router', 'other', 'Роутер', 'работает', 'small', 'whole', 'router'],
+    ['pda', 'other', 'Коммуникатор (КПК)', 'не включается', 'phone', 'raw', 'pda'],
+    ['cables', 'other', 'Зарядки и кабели', 'старые', 'cable', 'raw', 'cables'],
+  ].map(([id, cat, model, state, type, tag, art]) => ({ id, cat, model, state, type, tag, art, parts: [] })),
+];
+
+// Подтемы экрана «Житель» (порядок вкладок)
+export const CATEGORIES = [
+  { id: 'digital', label: 'Цифровая техника', hint: 'Телефоны, ноутбуки, компьютеры' },
+  { id: 'home', label: 'Бытовая техника', hint: 'От холодильника до утюга. Крупную заберут бесплатно по заявке' },
+  { id: 'screens', label: 'Экраны и ТВ', hint: 'Телевизоры, мониторы, моноблоки, электронные книги' },
+  { id: 'gadgets', label: 'Аудио и гаджеты', hint: 'Наушники, колонки, приставки, часы, камеры' },
+  { id: 'other', label: 'Запчасти и другое', hint: 'Аккумуляторы, роутеры, коммуникаторы, кабели' },
 ];
 
 // ── Способы сдачи ───────────────────────────────────────────────────────────

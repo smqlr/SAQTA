@@ -1,5 +1,5 @@
 // Экран «Житель»: фото или пример → карточка с моделью, живыми деталями и ценой → способ сдачи → QR-квитанция.
-import { EXAMPLES, DEVICE_TYPES, METHODS, SCHOOLS, BONUS, WALLET, TAGS, APP_NAME, DONOR_LINE, ECON } from '../data.js';
+import { EXAMPLES, CATEGORIES, DEVICE_TYPES, METHODS, SCHOOLS, BONUS, WALLET, TAGS, APP_NAME, DONOR_LINE, ECON } from '../data.js';
 import { getState, submitDonation, residentPickupDone, suggestTag, donationsThisMonth, selectHubItem } from '../store.js';
 import { ART } from '../lib/art.js';
 import { ICON } from '../lib/icons.js';
@@ -8,6 +8,7 @@ import { num, tenge, esc, dateTime } from '../lib/format.js';
 import { tagChip, demoMark, tbd, toast } from '../lib/ui.js';
 
 // Локальное состояние потока (не сохраняется: это шаги одного действия)
+let cat = CATEGORIES[0].id; // выбранная подтема — переживает возврат на старт
 let ui = { step: 'start', exampleId: null, manual: null, photoUrl: null, method: null, school: SCHOOLS[0], receiptId: null };
 export function home() {
   if (ui.photoUrl) URL.revokeObjectURL(ui.photoUrl);
@@ -38,7 +39,7 @@ function device() {
   }
   return null;
 }
-const artFor = (type) => ({ phone: 'phone', laptop: 'laptop', small: 'kettle', big: 'fridge' })[type] || 'device';
+const artFor = (type) => ({ phone: 'phone', laptop: 'laptop', small: 'kettle', big: 'fridge', screen: 'monitor', cable: 'cables' })[type] || 'device';
 const bonusFor = (type) => DEVICE_TYPES[type].bonus * (getState().tazaru ? BONUS.tazaruMultiplier : 1);
 
 export function render(el, st) {
@@ -70,8 +71,14 @@ function start(st) {
 }
 
 function examplesGrid() {
-  return `<div class="examples">${EXAMPLES.map(
-    (e) => `<button class="ex" data-example="${e.id}" aria-label="${esc(e.model)}, ${esc(e.state)} — пример">${demoMark()}${ART[e.art](e.model)}<b>${esc(e.model)}</b><span>${esc(e.state)}</span></button>`,
+  const c = CATEGORIES.find((x) => x.id === cat);
+  const items = EXAMPLES.filter((e) => e.cat === cat);
+  return `<div class="cats" role="tablist" aria-label="Подтемы техники">${CATEGORIES.map(
+    (x) => `<button class="cat" role="tab" data-cat="${x.id}" aria-selected="${x.id === cat}">${x.label}</button>`,
+  ).join('')}</div>
+  <p class="xs muted" style="margin:8px 2px 10px">${esc(c.hint)}</p>
+  <div class="examples" role="tabpanel" aria-label="${esc(c.label)}">${items.map(
+    (e) => `<button class="ex" data-example="${e.id}" aria-label="${esc(e.model)}, ${esc(e.state)} — пример">${ART[e.art](e.model)}<b>${esc(e.model)}</b><span>${esc(e.state)}</span><span class="ex-bonus">+${num(bonusFor(e.type))}</span></button>`,
   ).join('')}</div>`;
 }
 
@@ -235,6 +242,12 @@ function bind(el) {
       if (t.dataset.go === 'start') home();
       else ui.step = t.dataset.go;
       return rerender(el);
+    }
+    if (t.dataset.cat) {
+      cat = t.dataset.cat;
+      render(el, getState());
+      el.querySelector(`[data-cat="${cat}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+      return;
     }
     if (t.dataset.example) {
       ui.exampleId = t.dataset.example;
