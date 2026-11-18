@@ -1,5 +1,5 @@
 // Экран «Кошелёк», как в банковском приложении: баланс, уведомления, история, вывод на карту (макет).
-import { WALLET, BONUS, PILOT } from '../data.js';
+import { WALLET, BONUS, PILOT, APP_NAME } from '../data.js';
 import { getState, withdraw, markNotesRead } from '../store.js';
 import { ICON } from '../lib/icons.js';
 import { num, esc, dateTime, signed } from '../lib/format.js';
@@ -17,37 +17,42 @@ export function render(el, st) {
   const tx = [...st.wallet.tx].reverse();
 
   el.innerHTML = `<div class="phone-col">
-    <div class="screen-head"><div><h1>Кошелёк</h1><p class="muted">Бонусы копятся как в банке и выводятся на карту</p></div></div>
+    <div class="screen-head"><h1>Кошелёк</h1></div>
 
     <section class="bank-card" aria-label="Баланс бонусов">
-      <div class="ring"></div>
-      <div class="sub">Бонусы</div>
+      <div class="sub">Бонусы ${APP_NAME}</div>
       <div class="bal mt-8"><span class="num" data-testid="balance">${num(st.wallet.balance)}</span> <span class="unit">бонусов</span></div>
       <div class="sub mt-8">≈ ${num(st.wallet.balance * WALLET.tengePerBonus)} ₸ · 1 бонус = 1 ₸</div>
-      ${pending ? `<div class="sub mt-8">Ожидает проверки: +${num(pending)}</div>` : ''}
+      ${pending ? `<span class="pending">Ждут проверки: +${num(pending)}</span>` : ''}
     </section>
 
-    <div class="quick mt-16">
-      <button data-act="withdraw" ${canWithdraw ? '' : 'aria-disabled="true"'}><span class="ico">${ICON.card}</span>Вывести на карту</button>
+    <div class="quick mt-12">
+      <button data-act="withdraw" ${canWithdraw ? '' : 'aria-disabled="true"'}><span class="ico">${ICON.card}</span>На карту</button>
       <button data-act="rides"><span class="ico">${ICON.bus}</span>Поездки</button>
       <button data-act="discounts"><span class="ico">${ICON.percent}</span>Скидки</button>
     </div>
-    <p class="xs muted center mt-8">${canWithdraw ? `Вывод на карту любого банка от ${num(WALLET.withdrawMin)} бонусов` : `До вывода на карту осталось ${num(WALLET.withdrawMin - st.wallet.balance)} бонусов (вывод от ${num(WALLET.withdrawMin)})`}</p>
+    <p class="footnote center">${canWithdraw ? `Вывод на карту любого банка от ${num(WALLET.withdrawMin)} бонусов` : `До вывода на карту: ещё ${num(WALLET.withdrawMin - st.wallet.balance)} бонусов`}</p>
 
-    ${lastNote ? `<div class="notice mt-16" ${highlight.has(lastNote.id) ? 'style="box-shadow:0 0 0 2px var(--brand)"' : ''}><div class="ico">${lastNote.kind === 'royalty' ? ICON.heart : ICON.bell}</div>
-      <div class="small grow"><b>${esc(lastNote.title)}</b><br>${esc(lastNote.body)}<div class="xs faint mt-8">${dateTime(lastNote.ts)}</div></div></div>` : ''}
+    ${lastNote ? `<div class="notice mt-16 ${highlight.has(lastNote.id) ? 'hl' : ''}"><div class="ico ${lastNote.kind === 'royalty' ? '' : ''}">${lastNote.kind === 'royalty' ? ICON.heart : ICON.bell}</div>
+      <div class="small grow"><b>${esc(lastNote.title)}</b><div class="mt-8" style="margin-top:2px">${esc(lastNote.body)}</div><div class="xs faint mt-8">${dateTime(lastNote.ts)}</div></div></div>` : ''}
 
-    <div class="section-label mt-16">История</div>
-    <div class="card">${tx.length ? `<div class="list">${tx.map(txRow).join('')}</div>` : '<div class="empty">Пока пусто. Сдайте устройство на экране «Житель» — бонусы придут после проверки в хабе.</div>'}</div>
+    <div class="section-label mt-24">История</div>
+    <div class="card">${tx.length ? `<div class="list">${tx.map(txRow).join('')}</div>` : '<div class="empty">Пока пусто. Сдайте устройство — бонусы придут после проверки в хабе.</div>'}</div>
 
-    ${st.notes.length > 1 ? `<div class="section-label mt-16">Уведомления</div>
-      <div class="card"><div class="list">${[...st.notes].reverse().slice(1).map((n) => `<div class="li"><div class="ico">${n.kind === 'royalty' ? ICON.heart : ICON.bell}</div><div class="grow small"><b>${esc(n.title)}</b><div class="muted">${esc(n.body)}</div><div class="xs faint">${dateTime(n.ts)}</div></div></div>`).join('')}</div></div>` : ''}
+    ${st.notes.length > 1 ? `<div class="section-label mt-24">Уведомления</div>
+      <div class="card"><div class="list">${[...st.notes].reverse().slice(1).map((n) => `<div class="li"><div class="ico ${n.kind === 'royalty' ? 'red' : 'blue'}">${n.kind === 'royalty' ? ICON.heart : ICON.bell}</div><div class="grow small"><b>${esc(n.title)}</b><div class="muted">${esc(n.body)}</div><div class="xs faint">${dateTime(n.ts)}</div></div></div>`).join('')}</div></div>` : ''}
 
-    <div class="card flat mt-16 small muted">
-      <b style="color:var(--text)">Откуда деньги на бонусы.</b> ${Math.round(WALLET.fundRevenueShare * 100)}% выручки хаба от продажи деталей и металла плюс стартовый фонд ${num(WALLET.fundStart)} ₸. Выплаты — ${WALLET.payoutCycle}. Юридически это выплата за сданное вторсырьё.
-      <div class="mt-8">За что начисляем: телефон или планшет — ${BONUS.phone}, ноутбук — ${BONUS.laptop}, монитор или ТВ — ${BONUS.screen}, мелкая бытовая — ${BONUS.small}, вывоз крупной техники — ${BONUS.bigPickup}, роялти — ${Math.round(BONUS.royaltyShare * 100)}% цены проданных деталей. За зарядки и кабели — ${BONUS.cable}.</div>
-      <div class="mt-8">Тестовый режим: платежи не проводятся.</div>
-    </div>
+    <div class="section-label mt-24">Как начисляем</div>
+    <div class="card"><div class="kv">
+      <div><span>Телефон или планшет</span><b>${BONUS.phone}</b></div>
+      <div><span>Ноутбук или системный блок</span><b>${BONUS.laptop}</b></div>
+      <div><span>Монитор или телевизор</span><b>${BONUS.screen}</b></div>
+      <div><span>Мелкая бытовая, роутер, аккумулятор</span><b>${BONUS.small}</b></div>
+      <div><span>Вывоз крупной техники</span><b>${BONUS.bigPickup}</b></div>
+      <div><span>Зарядки и кабели</span><b>${BONUS.cable}</b></div>
+      <div><span>Деталь вашего устройства продана</span><b>${Math.round(BONUS.royaltyShare * 100)}% цены</b></div>
+    </div></div>
+    <p class="footnote">Бонусы платим из ${Math.round(WALLET.fundRevenueShare * 100)}% выручки хаба и стартового фонда ${num(WALLET.fundStart)} ₸. Это выплата за сданное вторсырьё, вывод — ${WALLET.payoutCycle}. Платежи сейчас в тестовом режиме.</p>
   </div>`;
 
   if (unread.length) setTimeout(markNotesRead, 0);
@@ -65,7 +70,8 @@ export function render(el, st) {
 
 function txRow(t) {
   const ico = t.kind === 'withdraw' ? ICON.card : t.kind === 'royalty' ? ICON.heart : ICON.leaf;
-  return `<div class="li"><div class="ico ${t.amount < 0 ? 'neg' : ''}">${ico}</div>
+  const cls = t.kind === 'withdraw' ? 'blue' : t.kind === 'royalty' ? 'red' : '';
+  return `<div class="li"><div class="ico ${cls}">${ico}</div>
     <div class="grow"><b>${esc(t.title)}</b><div class="xs muted">${esc(t.sub)} · ${dateTime(t.ts)}</div>
     ${t.status !== 'Зачислено' ? `<div class="xs" style="color:var(--warn);font-weight:600">${esc(t.status)}</div>` : ''}</div>
     <div class="amt ${t.amount > 0 ? 'pos' : ''}">${signed(t.amount)}</div></div>`;
@@ -75,8 +81,8 @@ function openPartners(kind) {
   sheet(kind === 'rides' ? 'Поездки' : 'Скидки', (body) => {
     body.innerHTML = `<div class="stack">
       <div class="notice"><div class="ico">${kind === 'rides' ? ICON.bus : ICON.percent}</div><div class="small">
-        Бонусы можно не выводить, а потратить на ${kind === 'rides' ? 'поездки' : 'скидки у партнёров'}. Партнёры подключаются в пилоте (${PILOT.months}).</div></div>
-      <p class="small muted">Условия и список партнёров появятся после подписания договоров.</p>
+        Бонусы можно не выводить, а потратить на ${kind === 'rides' ? 'поездки' : 'скидки у партнёров'}. Партнёры подключаются в пилоте: ${PILOT.months}.</div></div>
+      <p class="small muted">Список партнёров и условия появятся после подписания договоров.</p>
       <button class="btn primary block" data-close>Понятно</button></div>`;
   });
 }
@@ -114,7 +120,7 @@ function openWithdraw() {
             <input class="input big num" id="wAmount" inputmode="numeric" autocomplete="off" value="${w.amount}">
             <span class="hint">Доступно ${num(bal)} · минимум ${num(WALLET.withdrawMin)} · 1 бонус = 1 ₸</span></div>
           <div class="row wrap"><button type="button" class="btn sm ghost" data-amt="${WALLET.withdrawMin}">${num(WALLET.withdrawMin)}</button><button type="button" class="btn sm ghost" data-amt="${bal}">Всё: ${num(bal)}</button></div>
-          <div class="card flat tight row between"><span class="muted small">Придёт на карту</span><b class="num" id="wGet">${num(w.amount * WALLET.tengePerBonus)} ₸</b></div>
+          <div class="card tight row between"><span class="muted small">Придёт на карту</span><b class="num" id="wGet">${num(w.amount * WALLET.tengePerBonus)} ₸</b></div>
           ${w.err ? `<p class="error" role="alert">${w.err}</p>` : ''}
           <button class="btn primary block" type="submit">Дальше</button></form>`;
       } else if (w.step === 2) {
@@ -127,23 +133,23 @@ function openWithdraw() {
           <div class="row"><button type="button" class="btn ghost" data-back>Назад</button><button class="btn primary grow" type="submit">Дальше</button></div></form>`;
       } else if (w.step === 3) {
         body.innerHTML = `${steps}<form class="stack mt-16" data-step="3" novalidate>
-          <div class="card flat tight stack" style="gap:6px">
-            <div class="row between"><span class="muted small">Сумма</span><b class="num">${num(w.amount)} ₸</b></div>
-            <div class="row between"><span class="muted small">Карта</span><b class="num">${brand(w.card)} •• ${w.card.slice(-4)}</b></div>
-            <div class="row between"><span class="muted small">Выплата</span><b>${WALLET.payoutCycle}</b></div>
-          </div>
+          <div class="card tight"><div class="kv">
+            <div><span>Сумма</span><b class="num">${num(w.amount)} ₸</b></div>
+            <div><span>Карта</span><b class="num">${brand(w.card)} •• ${w.card.slice(-4)}</b></div>
+            <div><span>Выплата</span><b>${WALLET.payoutCycle}</b></div>
+          </div></div>
           <div class="field"><label for="wCode">Код из SMS на подтверждённый номер</label>
             <input class="input big num" id="wCode" inputmode="numeric" autocomplete="one-time-code" maxlength="4" placeholder="••••" value="${w.code}">
-            <span class="hint">Тестовый код: ${DEMO_CODE}</span></div>
+            <span class="hint">Тестовый режим: код ${DEMO_CODE}</span></div>
           ${w.err ? `<p class="error" role="alert">${w.err}</p>` : ''}
           <div class="row"><button type="button" class="btn ghost" data-back>Назад</button><button class="btn primary grow" type="submit">Подтвердить вывод</button></div></form>`;
       } else {
         body.innerHTML = `${steps}<div class="receipt mt-16">
-          <div class="mini-ico" style="width:56px;height:56px">${ICON.check}</div>
+          <div class="done-line" style="font-size:16px">${ICON.check} Готово</div>
           <h2>Заявка на вывод принята</h2>
           <div class="counter" style="font-size:36px">${num(w.amount)} ₸</div>
           <p class="muted small">на карту ${brand(w.card)} •• ${w.card.slice(-4)}<br>Статус: в обработке · выплата ${WALLET.payoutCycle}</p>
-          <span class="xs muted">Тестовый режим: платёж не проводится</span>
+          <span class="xs muted">Тестовый режим: деньги не переводятся</span>
           <button class="btn primary block" data-close>Готово</button></div>`;
       }
       body.querySelector('input')?.focus();

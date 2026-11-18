@@ -7,8 +7,8 @@ import { num, esc, dateTime } from '../lib/format.js';
 import { toast } from '../lib/ui.js';
 
 const KINDS = {
-  big: { label: 'Крупная', items: ['Холодильник', 'Стиральная машина', 'Плита', 'Телевизор'], bonus: BONUS.osiBig, who: 'крупное заберёт партнёр' },
-  small: { label: 'Мелкая', items: ['Чайник', 'Пылесос', 'Микроволновка', 'Роутер'], bonus: BONUS.osiSmall, who: 'мелкое — наш еженедельный маршрут' },
+  big: { label: 'Крупная', items: ['Холодильник', 'Стиральная машина', 'Плита', 'Телевизор'], bonus: BONUS.osiBig, who: 'партнёр' },
+  small: { label: 'Мелкая', items: ['Чайник', 'Пылесос', 'Микроволновка', 'Роутер'], bonus: BONUS.osiSmall, who: 'маршрут хаба, раз в неделю' },
 };
 let ui = { kind: 'big', what: KINDS.big.items[0], photoUrl: null, last: null };
 export function home() { if (ui.photoUrl) URL.revokeObjectURL(ui.photoUrl); ui = { kind: 'big', what: KINDS.big.items[0], photoUrl: null, last: null }; }
@@ -17,43 +17,47 @@ export function render(el, st) {
   const k = KINDS[ui.kind];
   const last = ui.last ? st.osi.tags.find((t) => t.id === ui.last) : null;
   el.innerHTML = `<div class="phone-col">
-    <div class="screen-head"><div><h1>Бирка у бака</h1><p class="muted">Режим ОСИ и дворника</p></div></div>
-    <section class="bank-card" aria-label="Бонусы ОСИ" style="padding:16px 20px">
-      <div class="ring"></div><div class="sub">Бонусы ОСИ</div>
-      <div class="bal num" style="font-size:32px">${num(st.osi.balance)}</div>
-      <div class="sub">${BONUS.osiBig} за крупную вещь, ${BONUS.osiSmall} за мелкую — после фото и вывоза</div>
+    <div class="screen-head"><h1>Бирка у бака</h1><p>Для ОСИ и дворников: отметьте технику у контейнера</p></div>
+    <section class="bank-card" aria-label="Бонусы ОСИ" data-testid="osi-balance">
+      <div class="sub">Бонусы ОСИ</div>
+      <div class="bal num mt-8" style="font-size:34px">${num(st.osi.balance)}</div>
+      <div class="sub mt-8">${BONUS.osiBig} за крупную вещь, ${BONUS.osiSmall} за мелкую — после фото и вывоза</div>
     </section>
 
     ${last ? tagView(last) : `
-    <div class="section-label mt-16">Новая бирка</div>
+    <div class="section-label mt-24">Новая бирка</div>
     <div class="card stack">
       ${ui.photoUrl ? `<img class="photo-prev" src="${ui.photoUrl}" alt="Фото техники у контейнера">` : ''}
       <label class="btn ghost block" for="osiPhoto">${ICON.camera} ${ui.photoUrl ? 'Переснять' : 'Сфотографировать технику'}</label>
       <input id="osiPhoto" type="file" accept="image/*" capture="environment" class="sr-only">
-      <div class="seg" role="group" aria-label="Размер">${Object.entries(KINDS).map(([id, v]) => `<button data-kind="${id}" aria-pressed="${ui.kind === id}">${v.label} · +${v.bonus}</button>`).join('')}</div>
+      <div class="seg block" role="group" aria-label="Размер">${Object.entries(KINDS).map(([id, v]) => `<button data-kind="${id}" aria-pressed="${ui.kind === id}">${v.label} · +${v.bonus}</button>`).join('')}</div>
       <div class="field"><label for="osiWhat">Вид техники</label><select class="input" id="osiWhat">${k.items.map((i) => `<option ${i === ui.what ? 'selected' : ''}>${i}</option>`).join('')}</select></div>
-      <button class="btn primary block" data-mark>${ICON.tag} Отметить</button>
+      <button class="btn primary lg block" data-mark>${ICON.tag} Отметить</button>
     </div>`}
 
-    ${st.osi.tags.length ? `<div class="section-label mt-16">Мои бирки</div><div class="card"><div class="list">${st.osi.tags.map((t) => `<div class="li">
-      <div class="ico">${ICON.tag}</div><div class="grow"><b>${t.no}</b> · ${esc(t.what)}<div class="xs muted">${t.status === 'picked' ? 'вывезено' : 'ждёт вывоза'} · ${dateTime(t.ts)}</div></div>
+    ${st.osi.tags.length ? `<div class="section-label mt-24">Мои бирки</div><div class="card"><div class="list">${st.osi.tags.map((t) => `<div class="li">
+      <div class="ico ${t.status === 'picked' ? '' : 'orange'}">${ICON.tag}</div><div class="grow"><b>${t.no}</b> · ${esc(t.what)}<div class="xs muted">${t.status === 'picked' ? 'вывезено' : 'ждёт вывоза'} · ${dateTime(t.ts)}</div></div>
       <div class="amt ${t.status === 'picked' ? 'pos' : 'faint'}">+${num(t.kind === 'big' ? BONUS.osiBig : BONUS.osiSmall)}</div></div>`).join('')}</div></div>` : ''}
-    <p class="xs muted mt-12">С сентября 2026 года ОСИ могут получать и выплаты от операторов РОП.</p>
+    <p class="footnote">С сентября 2026 года ОСИ могут получать и выплаты от операторов РОП.</p>
   </div>`;
   bind(el);
 }
 
 function tagView(t) {
   const k = KINDS[t.kind];
-  return `<div class="section-label mt-16">Бирка</div>
+  return `<div class="section-label mt-24">Бирка № ${t.no}</div>
   <div class="card receipt">
     ${qrSvg(`${APP_NAME}:tag:${t.no}`, { label: `QR бирки ${t.no}` })}
     <div><div class="xs muted">${APP_NAME} · бирка № ${t.no}</div><h2>Эту технику заберут на переработку</h2></div>
-    <p class="small">Не выбрасывайте в контейнер.<br>Вид: ${esc(t.what.toLowerCase())} · Отметил: ОСИ дома</p>
-    <p class="xs muted">${k.who}</p>
+    <p class="small">Не выбрасывайте в контейнер.</p>
+    <div class="kv">
+      <div><span>Вид</span><b>${esc(t.what)}</b></div>
+      <div><span>Отметил</span><b>ОСИ дома</b></div>
+      <div><span>Кто заберёт</span><b>${k.who}</b></div>
+    </div>
     ${t.status === 'marked'
       ? `<button class="btn primary block" data-pickup="${t.id}">${ICON.truck} Партнёр забрал</button>`
-      : `<p class="tag whole">вывезено · +${num(k.bonus)} бонусов ОСИ</p>`}
+      : `<div class="done-line">${ICON.check}Вывезено · +${num(k.bonus)} бонусов ОСИ</div>`}
     <button class="btn ghost block" data-done>Новая бирка</button>
   </div>`;
 }

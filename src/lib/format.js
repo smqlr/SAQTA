@@ -6,7 +6,7 @@ const nf2 = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFr
 export const num = (n) => (n == null ? '—' : nf.format(n));
 export const num1 = (n) => (n == null ? '—' : nf1.format(n));
 export const num2 = (n) => (n == null ? '—' : nf2.format(n));
-export const tenge = (n) => (n == null ? 'уточняется' : `${nf.format(n)} ₸`);
+export const tenge = (n) => (n == null ? '—' : `${nf.format(n)} ₸`);
 export const signed = (n) => (n > 0 ? `+${nf.format(n)}` : n < 0 ? `−${nf.format(Math.abs(n))}` : '0');
 export const pct = (p) => `${nf.format(Math.round(p * 100))}%`;
 

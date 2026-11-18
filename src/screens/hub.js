@@ -7,9 +7,10 @@ import { ART } from '../lib/art.js';
 import { ICON } from '../lib/icons.js';
 import { qrSvg } from '../lib/qr.js';
 import { num, esc, tenge, DAY, dateTime } from '../lib/format.js';
-import { tagChip, demoMark, simMark, realMark, tbd, sheet, toast } from '../lib/ui.js';
+import { tagChip, simMark, realMark, sheet, toast } from '../lib/ui.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
 
+const dash = '<span class="faint">—</span>';
 let ui = { pick: null, running: false, lastRun: null };
 export function home() { ui = { pick: null, running: false, lastRun: ui.lastRun }; }
 
@@ -26,7 +27,7 @@ export function render(el, st) {
   if (ui.pick && ui.pick.itemId !== sel?.id) ui.pick = null;
 
   el.innerHTML = `
-  <div class="screen-head"><div><h1>Хаб</h1><p class="muted">Мастерская-лаборатория: приёмка, триаж за ${ECON.triageSec} секунд, детали только под заказ</p></div></div>
+  <div class="screen-head"><h1>Хаб</h1><p>Приёмка, триаж за ${ECON.triageSec} секунд, детали только под заказ</p></div>
   <div class="kpis">
     ${kpi(tenge(ECON.deviceProcessing), 'обработка одного устройства', tenge(ECON.checkNow))}
     ${kpi(`≈ ${tenge(ECON.cellTenge)}`, `проверка ячейки, ${TEST30.seconds} с`, `${tenge(ECON.cellNowTenge)}, ${ECON.cellNowMin} мин`)}
@@ -48,12 +49,12 @@ export function render(el, st) {
   bind(el, sel);
 }
 
-const kpi = (v, l, was) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${was ? `<div class="was">было ${was}</div>` : ''}</div>`;
+const kpi = (v, l, was) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${was ? `<div class="was">Было: ${was}</div>` : ''}</div>`;
 
 function queueItem(it, sel) {
   return `<button class="qi" data-select="${it.id}" aria-current="${it.id === sel?.id}">
     ${ART[artOf(it)](it.model)}
-    <span class="grow"><b class="small">${esc(it.model)}</b><br><span class="xs muted">${it.deviceNo}${it.demo ? ' · пример' : ' · от жителя'}</span></span>
+    <span class="grow"><b class="small">${esc(it.model)}</b><br><span class="xs muted">${it.deviceNo}${it.demo ? '' : ' · от жителя'}</span></span>
     ${it.status === 'new' ? `<span class="stack" style="gap:2px;justify-items:end">${!it.demo ? '<span class="new">новое</span>' : ''}${tagChip(null)}</span>` : tagChip(it.tag)}
   </button>`;
 }
@@ -66,7 +67,7 @@ function detail(it) {
   <div class="row" style="align-items:flex-start;gap:14px">
     <div style="width:84px;flex:none">${ART[artOf(it)](it.model)}</div>
     <div class="grow">
-      <div class="row wrap" style="gap:6px">${tagChip(it.tag)}${it.demo ? demoMark() : '<span class="note-demo note-real">от жителя</span>'}</div>
+      <div class="row wrap" style="gap:8px">${tagChip(it.tag)}${it.demo ? '' : '<span class="note-demo note-real">от жителя</span>'}</div>
       <h2 class="mt-8">${esc(it.model)}</h2>
       <div class="small muted">${it.deviceNo} · ${esc(it.state || '')} · принято ${dateTime(it.ts)}</div>
     </div>
@@ -74,7 +75,7 @@ function detail(it) {
 
   ${it.status === 'new' ? `
   <div class="section-label mt-16">Триаж</div>
-  <p class="small muted">ИИ смотрит фото и предлагает бирку, техник подтверждает.</p>
+  <p class="small muted">Бирку предлагает распознавание по фото и модели, техник подтверждает.</p>
   <div class="row wrap mt-8" role="group" aria-label="Бирка">
     ${Object.keys(TAGS).map((t) => `<button class="btn sm ${chosen === t ? 'primary' : 'ghost'}" data-tag="${t}" aria-pressed="${chosen === t}">${TAGS[t].label}${t === it.suggestedTag ? ' · предложено' : ''}</button>`).join('')}
   </div>
@@ -100,13 +101,13 @@ function evTable(ex) {
       const ps = pSell(p);
       return `<tr>
         <td><b>${esc(p.name)}</b>${ev == null ? '' : `<div class="xs muted nowrap">${esc(evExplain(p, num))}</div>`}</td>
-        <td class="r">${p.pWorks == null ? tbd() : String(p.pWorks).replace('.', ',')}</td>
-        <td class="r">${p.price == null ? tbd() : tenge(p.price)}</td>
-        <td>${p.hasOrder == null ? tbd() : p.hasOrder ? 'есть' : 'нет'}</td>
-        <td class="r">${ps == null ? tbd() : String(ps).replace('.', ',')}</td>
-        <td class="r">${p.minutes == null ? tbd() : p.minutes}</td>
-        <td class="r"><b>${ev == null ? tbd() : `${ev > 0 ? '+' : '−'}${num(Math.abs(ev))} ₸`}</b></td>
-        <td>${dcs.take == null ? (p.hasOrder ? '<b>под заявку</b>' : tbd()) : dcs.take ? '<b style="color:var(--tag-whole)">снимаем</b>' : '<span class="muted">оставляем</span>'}</td>
+        <td class="r">${p.pWorks == null ? dash : String(p.pWorks).replace('.', ',')}</td>
+        <td class="r">${p.price == null ? dash : tenge(p.price)}</td>
+        <td>${p.hasOrder == null ? dash : p.hasOrder ? 'есть' : 'нет'}</td>
+        <td class="r">${ps == null ? dash : String(ps).replace('.', ',')}</td>
+        <td class="r">${p.minutes == null ? dash : p.minutes}</td>
+        <td class="r"><b>${ev == null ? dash : `${ev > 0 ? '+' : '−'}${num(Math.abs(ev))} ₸`}</b></td>
+        <td>${dcs.take == null ? (p.hasOrder ? '<b style="color:var(--tag-whole)">под заявку</b>' : '<span class="muted">ждём заявку</span>') : dcs.take ? '<b style="color:var(--tag-whole)">снимаем</b>' : '<span class="muted">оставляем</span>'}</td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
 }
@@ -155,7 +156,7 @@ function test30Card(sel) {
     </div>
     <div class="span-7">
       <div class="row between"><b class="small">Кривые напряжения, В</b><div class="legend"><span><i style="background:var(--grade-a)"></i>A</span><span><i style="background:var(--grade-b)"></i>B</span><span><i style="background:var(--grade-c)"></i>C</span></div></div>
-      <div class="chart-box mt-8">${r ? '<canvas id="t30chart" aria-label="Кривые напряжения 16 ячеек"></canvas>' : `<div class="empty" style="height:100%;display:grid;place-items:center">Нажмите «Запустить» — стенд даст импульс нагрузки и построит кривые</div>`}</div>
+      <div class="chart-box mt-8">${r ? '<canvas id="t30chart" aria-label="Кривые напряжения 16 ячеек"></canvas>' : `<div class="empty" style="height:100%;display:grid;place-items:center">Нажмите «Запустить»: стенд даст импульс нагрузки и построит кривые</div>`}</div>
       ${r ? `<p class="xs muted mt-8">Ток импульса ≈ ${String(r.results[0].current).replace('.', ',')} А. Время теста — ${TEST30.seconds} с на все ${TEST30.cells} ячеек одновременно (вручную — ${ECON.cellNowMin} минут на одну).</p>` : ''}
     </div>
   </div>`;
@@ -210,7 +211,7 @@ function bankCard(st) {
 function shelf(p) {
   const days = Math.floor((Date.now() - p.createdTs) / DAY);
   const left = Math.max(0, PARTS.unsoldDays - days);
-  return `<div class="row between xs mt-8"><span class="muted">на полке ${days} дн. из ${PARTS.unsoldDays}</span><span class="${left < 15 ? 'tbd' : 'muted'}">осталось ${left} дн.</span></div>
+  return `<div class="row between xs mt-8"><span class="muted">на полке ${days} дн. из ${PARTS.unsoldDays}</span><span style="color:${left < 15 ? 'var(--warn)' : 'var(--muted)'};font-weight:${left < 15 ? 600 : 400}">осталось ${left} дн.</span></div>
   <div class="progress" style="height:6px"><i style="width:${Math.min(100, (days / PARTS.unsoldDays) * 100)}%"></i></div>`;
 }
 
@@ -219,11 +220,11 @@ function passport(p) {
   return `<div class="passport">
     <div class="qr-sm">${qrSvg(`${APP_NAME}:part:${p.passportNo}`, { label: `QR-паспорт ${p.passportNo}` })}</div>
     <div class="lines">
-      <span class="xs muted">${APP_NAME} · деталь № ${p.passportNo}${p.demo ? ' (образец)' : ''}</span>
+      <span class="xs muted">${APP_NAME} · деталь № ${p.passportNo}</span>
       <b>${esc(p.part)} · ${esc(p.model)}</b>
       <span>Из устройства № ${p.fromDevice}, данные стёрты</span>
       <span>Проверка: ${esc(p.check)}</span>
-      <span>Гарантия ${PARTS.warrantyDays} дней · цена ${p.price == null ? tbd() : tenge(p.price)}</span>
+      <span>Гарантия ${PARTS.warrantyDays} дней${p.price == null ? '' : ` · цена ${tenge(p.price)}`}</span>
       ${p.hasOrder ? '<span class="xs" style="color:var(--brand);font-weight:600">есть заявка мастерской</span>' : ''}
       ${p.sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано${royalty ? ` · роялти донору +${num(royalty)}` : ''}</span>` : `${shelf(p)}<button class="btn sm ghost mt-8" style="justify-self:start" data-sell="${p.id}">Отметить продажу</button>`}
     </div></div>`;
@@ -239,7 +240,7 @@ function groupCard(g) {
       <span class="xs muted">${APP_NAME} · детали устройства № ${first.fromDevice}</span>
       <b>${esc(first.model)}: ${g.length} детали под заказ</b>
       ${g.map((p) => `<span>${p.passportNo} · ${esc(p.part)}${p.goesTo ? ` → ${esc(p.goesTo)}` : ''}${p.hasOrder ? ' · <b style="color:var(--brand)">заявка</b>' : ''}</span>`).join('')}
-      <span>Гарантия ${PARTS.warrantyDays} дней · цены ${tbd()}</span>
+      <span>Гарантия ${PARTS.warrantyDays} дней на каждую деталь</span>
       ${sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано · роялти донору +${num(ex?.royalty)}</span>` : `${shelf(first)}<button class="btn sm primary mt-8" style="justify-self:start" data-sell="${first.id}">Детали проданы</button>`}
     </div></div>`;
 }

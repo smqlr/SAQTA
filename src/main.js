@@ -19,25 +19,16 @@ const SCREENS = [
   { id: 'akimat', label: 'Акимат', icon: ICON.akimat, mod: akimat },
 ];
 
-const THEME_KEY = 'unknown-theme';
-function applyTheme(t) {
-  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-  else delete document.documentElement.dataset.theme;
-}
-function savedTheme() { try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch { return 'auto'; } }
-function saveTheme(t) { try { localStorage.setItem(THEME_KEY, t); } catch { /* нет хранилища */ } }
-applyTheme(savedTheme());
-
 document.title = APP_NAME;
 const app = document.getElementById('app');
 app.innerHTML = `
   <header class="topbar">
     <div class="topbar-in">
       <div class="brand"><span class="brand-mark">${ICON.logo}</span><span class="brand-name">${APP_NAME}</span></div>
-      <nav class="tabs" role="tablist" aria-label="Экраны">
+      <nav class="tabs" aria-label="Разделы"><div class="tabs-track" role="tablist">
         ${SCREENS.map((s) => `<button class="tab" role="tab" data-screen="${s.id}" aria-selected="false">${s.icon}<span>${s.label}</span></button>`).join('')}
-      </nav>
-      <button class="icon-btn" id="menuBtn" aria-label="Меню" aria-haspopup="true" aria-expanded="false">${ICON.more}</button>
+      </div></nav>
+      <button class="icon-btn" id="menuBtn" aria-label="Настройки" aria-haspopup="true" aria-expanded="false">${ICON.more}</button>
     </div>
   </header>
   <main class="view" id="view" tabindex="-1"></main>`;
@@ -74,23 +65,22 @@ document.querySelector('.tabs').addEventListener('click', (e) => {
 window.addEventListener('hashchange', route);
 subscribe(() => renderCurrent(false));
 
-// ── Меню ───────────────────────────────────────────────────────────────
+// ── Меню настроек ──────────────────────────────────────────────────────
 const menuBtn = document.getElementById('menuBtn');
 function closeMenu() { document.querySelector('.menu')?.remove(); menuBtn.setAttribute('aria-expanded', 'false'); }
 menuBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   if (document.querySelector('.menu')) return closeMenu();
   const st = getState();
-  const theme = savedTheme();
   const m = document.createElement('div');
   m.className = 'menu';
+  m.setAttribute('role', 'menu');
   m.innerHTML = `
-    <div class="xs muted" style="padding:6px 10px">${SLOGAN}</div>
-    <button data-act="tazaru"><div class="grow"><b>Неделя Тазару күні</b><div class="xs muted">бонусы × 2 за сдачу</div></div><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
-    <button data-act="theme"><div class="grow"><b>Тема</b><div class="xs muted">${theme === 'auto' ? 'как в системе' : theme === 'dark' ? 'тёмная' : 'светлая'}</div></div>${ICON.sun}</button>
+    <div class="menu-cap">${APP_NAME} · ${SLOGAN}</div>
+    <button data-act="tazaru" role="menuitemcheckbox" aria-checked="${st.tazaru}"><div class="grow"><b>Неделя Тазару күні</b><div class="xs muted">Бонусы × 2 за сданную технику</div></div><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
     <hr>
-    <button data-act="clean">${ICON.reset}<div><b>Начать заново</b><div class="xs muted">пустой кошелёк и история</div></div></button>
-    <button data-act="ready">${ICON.wallet}<div><b>Восстановить пример</b><div class="xs muted">кошелёк с историей: 1 320 бонусов</div></div></button>`;
+    <button data-act="ready" role="menuitem">${ICON.wallet}<div><b>Кошелёк с историей</b><div class="xs muted">1 320 бонусов: ноутбук и роялти</div></div></button>
+    <button data-act="clean" role="menuitem">${ICON.reset}<div><b>Начать с нуля</b><div class="xs muted">Пустой кошелёк, без заявок</div></div></button>`;
   document.querySelector('.topbar').appendChild(m);
   menuBtn.setAttribute('aria-expanded', 'true');
   m.addEventListener('click', (ev) => {
@@ -99,16 +89,16 @@ menuBtn.addEventListener('click', (e) => {
     ev.stopPropagation();
     const act = b.dataset.act;
     if (act === 'tazaru') { setTazaru(!getState().tazaru); toast(getState().tazaru ? 'Тазару күні: бонусы × 2' : 'Тазару күні выключен'); }
-    if (act === 'theme') { const next = { auto: 'light', light: 'dark', dark: 'auto' }[savedTheme()]; saveTheme(next); applyTheme(next); renderCurrent(); }
     if (act === 'clean' || act === 'ready') {
       SCREENS.forEach((s) => s.mod.home?.());
       reset(act);
-      toast(act === 'clean' ? 'Данные очищены' : 'Пример восстановлен');
+      toast(act === 'clean' ? 'Данные очищены' : 'Кошелёк с историей загружен');
     }
     closeMenu();
   });
 });
 document.addEventListener('click', (e) => { if (!e.target.closest('.menu')) closeMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
 route();
 

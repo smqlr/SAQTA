@@ -8,8 +8,8 @@ import { mkdirSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const { APP_NAME } = await import(join(root, 'src/data.js'));
-const FILE = `file://${join(root, 'dist', `${APP_NAME}.html`)}`;
+const { APP_FILE } = await import(join(root, 'src/data.js'));
+const FILE = `file://${join(root, 'dist', `${APP_FILE}.html`)}`;
 const SHOTS = process.env.SHOTS;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
@@ -20,7 +20,12 @@ const ok = (cond, msg) => {
 };
 const digits = (s) => Number(String(s).replace(/[^\d]/g, ''));
 
-const browser = await chromium.launch();
+// Браузер: Chromium из `npx playwright install chromium`, а если его нет — установленный Google Chrome
+async function launch() {
+  if (process.env.PW_CHANNEL) return chromium.launch({ channel: process.env.PW_CHANNEL });
+  try { return await chromium.launch(); } catch { return chromium.launch({ channel: 'chrome' }); }
+}
+const browser = await launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
 const external = [];
 await ctx.route('**/*', (r) => {

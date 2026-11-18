@@ -1,7 +1,7 @@
 {
-  "name": "unknown-app",
+  "name": "qaita",
   "version": "1.0.0",
-  "description": "Прототип: житель, кошелёк, магазин, ОСИ, хаб, акимат (кейс STEM «Электронные отходы»)",
+  "description": "QAITA — сбор старой техники в Актобе: житель, кошелёк, магазин, ОСИ, хаб, акимат (Hack.IT, STEM, «Электронные отходы»)",
   "scripts": {
     "build": "node build.mjs",
     "test": "node tests/e2e.mjs",
@@ -9,9 +9,9 @@
   },
   "license": "UNLICENSED",
   "devDependencies": {
-    "@fontsource/inter": "^5.1.0",
     "chart.js": "^4.4.6",
     "esbuild": "^0.24.0",
+    "playwright": "^1.56.1",
     "qrcode-generator": "^1.4.4"
   },
   "private": true,

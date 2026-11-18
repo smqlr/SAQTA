@@ -8,7 +8,7 @@ import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
 import { DAY, pad, num } from './lib/format.js';
 
-const KEY = 'unknown-demo-v1';
+const KEY = 'qaita-v1';
 const listeners = new Set();
 let state;
 

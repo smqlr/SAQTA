@@ -1,7 +1,6 @@
 // Экран «Акимат»: счётчик тонн к цели 229,6 т, тонны по каналам, деньги РОП, рейтинг школ, сценарии.
 import { PILOT, ROP, SCENARIOS, BONUS_TOTALS, SCHOOL_LEAGUE, WEIGHT_KG } from '../data.js';
 import { num, num1, num2, tenge, dateTime, esc } from '../lib/format.js';
-import { demoMark } from '../lib/ui.js';
 import { ICON } from '../lib/icons.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
 
@@ -24,7 +23,7 @@ export function render(el, st) {
 
   const maxT = Math.max(...PILOT.channels.map((x) => x.t));
   el.innerHTML = `
-  <div class="screen-head"><div><h1>Панель акимата</h1><p class="muted">Пилот ${PILOT.months} · бюджет ${tenge(PILOT.budget)}</p></div></div>
+  <div class="screen-head"><h1>Панель акимата</h1><p>Пилот: ${PILOT.months} · бюджет ${tenge(PILOT.budget)}</p></div>
   <div class="dash">
     <section class="card span-7" aria-label="Счётчик тонн">
       <div class="card-title"><h2>Техника, выведенная из мусора</h2></div>
@@ -44,20 +43,20 @@ export function render(el, st) {
       ${events.length ? `<div class="list">${events.map((e) => `<div class="li"><div class="ico">${ICON.scale}</div><div class="grow small"><b>+${num(e.kg)} кг</b> · ${esc(e.text)}
         ${e.rop != null ? `<div class="xs muted">РОП за эту технику ≈ ${tenge(e.rop)} на всю цепочку (${num(e.kg)} кг × ${num2(e.rate)} ₸ за т)</div>` : ''}
         <div class="xs faint">${dateTime(e.ts)}</div></div></div>`).join('')}</div>`
-        : '<div class="empty">Пока пусто. Сдайте технику на экранах «Житель», «Магазин» или «ОСИ».</div>'}
+        : '<div class="empty">Поступлений пока нет. Они появятся, когда технику сдадут жители, магазины или ОСИ.</div>'}
     </section>
 
     <section class="span-5 stack" aria-label="Главные цифры" style="align-content:start">
       <div class="kpis" style="grid-template-columns:repeat(2,1fr)">
-        <div class="kpi"><div class="v">≈ ${PILOT.recycleTargetPct}%</div><div class="l">доля переработки на рабочем темпе</div><div class="was">сейчас ${PILOT.recycleNowPct}%</div></div>
+        <div class="kpi"><div class="v">≈ ${PILOT.recycleTargetPct}%</div><div class="l">доля переработки на рабочем темпе</div><div class="was">Сейчас: ${PILOT.recycleNowPct}%</div></div>
         <div class="kpi"><div class="v">≈ ${num(PILOT.yearPaceT)} т</div><div class="l">в год после разгона, +${num1(PILOT.ppGain)} п.п.</div></div>
         <div class="kpi"><div class="v">${num1(PILOT.costPerKg)} ₸</div><div class="l">стоит пилоту килограмм техники</div></div>
         <div class="kpi"><div class="v">${num1(ROP.totalLostMln)} млн ₸</div><div class="l">РОП в год, который город не получает</div></div>
       </div>
       <div class="card">
-        <div class="card-title"><h2>Рейтинг школ</h2>${demoMark()}</div>
-        <div class="list">${schools.map(([name, n], i) => `<div class="li"><div class="ico" style="font-weight:700">${i + 1}</div><div class="grow"><b>${esc(name)}</b></div><div class="amt">${num(n)} шт.</div></div>`).join('')}</div>
-        <p class="xs muted mt-8">${SCHOOL_LEAGUE.schools} школ в Донор-лиге. Классы-победители получают ${SCHOOL_LEAGUE.prize}. Названия и числа — после договоров.</p>
+        <div class="card-title"><h2>Рейтинг школ</h2><span class="xs muted">Донор-лига</span></div>
+        <div class="list">${schools.map(([name, n], i) => `<div class="li"><div class="ico num-ico">${i + 1}</div><div class="grow"><b>${esc(name)}</b></div><div class="amt">${num(n)} шт.</div></div>`).join('')}</div>
+        <p class="xs muted mt-8">${SCHOOL_LEAGUE.schools} школ в Донор-лиге. Классы-победители получают ${SCHOOL_LEAGUE.prize}.</p>
       </div>
     </section>
 
