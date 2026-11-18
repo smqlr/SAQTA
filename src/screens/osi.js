@@ -52,7 +52,7 @@ function tagView(t) {
     <p class="small">Не выбрасывайте в контейнер.<br>Вид: ${esc(t.what.toLowerCase())} · Отметил: ОСИ дома</p>
     <p class="xs muted">${k.who}</p>
     ${t.status === 'marked'
-      ? `<button class="btn primary block" data-pickup="${t.id}">${ICON.truck} Партнёр забрал (демо)</button>`
+      ? `<button class="btn primary block" data-pickup="${t.id}">${ICON.truck} Партнёр забрал</button>`
       : `<p class="tag whole">вывезено · +${num(k.bonus)} бонусов ОСИ</p>`}
     <button class="btn ghost block" data-done>Новая бирка</button>
   </div>`;

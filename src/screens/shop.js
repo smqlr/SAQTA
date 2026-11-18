@@ -11,7 +11,7 @@ export function home() { ui = { mode: 'buyer', pickupOld: true, placed: null }; 
 
 export function render(el, st) {
   el.innerHTML = `<div class="phone-col">
-    <div class="screen-head"><div><h1>Магазин</h1><p class="muted">«Обратный рейс»: привезли новое — забрали старое</p></div><span class="note-demo">макет</span></div>
+    <div class="screen-head"><div><h1>Магазин</h1><p class="muted">«Обратный рейс»: привезли новое — забрали старое</p></div></div>
     <div class="seg" role="group" aria-label="Режим">
       <button data-mode="buyer" aria-pressed="${ui.mode === 'buyer'}">Покупатель</button>
       <button data-mode="crew" aria-pressed="${ui.mode === 'crew'}">Экипаж доставки</button>

@@ -1,5 +1,5 @@
 // Service worker для версии на GitHub Pages: сначала сеть, без сети — копия из кэша.
-const CACHE = 'app-743b6dedec';
+const CACHE = 'app-a0b07596c5';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {

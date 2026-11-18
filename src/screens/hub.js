@@ -74,7 +74,7 @@ function detail(it) {
 
   ${it.status === 'new' ? `
   <div class="section-label mt-16">Триаж</div>
-  <p class="small muted">ИИ смотрит фото, техник подтверждает. В прототипе бирка предложена по примеру или по ручному вводу.</p>
+  <p class="small muted">ИИ смотрит фото и предлагает бирку, техник подтверждает.</p>
   <div class="row wrap mt-8" role="group" aria-label="Бирка">
     ${Object.keys(TAGS).map((t) => `<button class="btn sm ${chosen === t ? 'primary' : 'ghost'}" data-tag="${t}" aria-pressed="${chosen === t}">${TAGS[t].label}${t === it.suggestedTag ? ' · предложено' : ''}</button>`).join('')}
   </div>
@@ -225,7 +225,7 @@ function passport(p) {
       <span>Проверка: ${esc(p.check)}</span>
       <span>Гарантия ${PARTS.warrantyDays} дней · цена ${p.price == null ? tbd() : tenge(p.price)}</span>
       ${p.hasOrder ? '<span class="xs" style="color:var(--brand);font-weight:600">есть заявка мастерской</span>' : ''}
-      ${p.sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано${royalty ? ` · роялти донору +${num(royalty)}` : ''}</span>` : `${shelf(p)}<button class="btn sm ghost mt-8" style="justify-self:start" data-sell="${p.id}">Продано (демо)</button>`}
+      ${p.sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано${royalty ? ` · роялти донору +${num(royalty)}` : ''}</span>` : `${shelf(p)}<button class="btn sm ghost mt-8" style="justify-self:start" data-sell="${p.id}">Отметить продажу</button>`}
     </div></div>`;
 }
 
@@ -240,7 +240,7 @@ function groupCard(g) {
       <b>${esc(first.model)}: ${g.length} детали под заказ</b>
       ${g.map((p) => `<span>${p.passportNo} · ${esc(p.part)}${p.goesTo ? ` → ${esc(p.goesTo)}` : ''}${p.hasOrder ? ' · <b style="color:var(--brand)">заявка</b>' : ''}</span>`).join('')}
       <span>Гарантия ${PARTS.warrantyDays} дней · цены ${tbd()}</span>
-      ${sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано · роялти донору +${num(ex?.royalty)}</span>` : `${shelf(first)}<button class="btn sm primary mt-8" style="justify-self:start" data-sell="${first.id}">Детали проданы (демо)</button>`}
+      ${sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано · роялти донору +${num(ex?.royalty)}</span>` : `${shelf(first)}<button class="btn sm primary mt-8" style="justify-self:start" data-sell="${first.id}">Детали проданы</button>`}
     </div></div>`;
 }
 

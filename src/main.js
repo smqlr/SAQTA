@@ -28,16 +28,16 @@ function savedTheme() { try { return localStorage.getItem(THEME_KEY) || 'auto'; 
 function saveTheme(t) { try { localStorage.setItem(THEME_KEY, t); } catch { /* нет хранилища */ } }
 applyTheme(savedTheme());
 
-document.title = `${APP_NAME} — прототип`;
+document.title = APP_NAME;
 const app = document.getElementById('app');
 app.innerHTML = `
   <header class="topbar">
     <div class="topbar-in">
-      <div class="brand"><span class="brand-mark">${ICON.logo}</span><span class="brand-name">${APP_NAME}</span><span class="proto">прототип</span></div>
+      <div class="brand"><span class="brand-mark">${ICON.logo}</span><span class="brand-name">${APP_NAME}</span></div>
       <nav class="tabs" role="tablist" aria-label="Экраны">
         ${SCREENS.map((s) => `<button class="tab" role="tab" data-screen="${s.id}" aria-selected="false">${s.icon}<span>${s.label}</span></button>`).join('')}
       </nav>
-      <button class="icon-btn" id="menuBtn" aria-label="Меню демо" aria-haspopup="true" aria-expanded="false">${ICON.more}</button>
+      <button class="icon-btn" id="menuBtn" aria-label="Меню" aria-haspopup="true" aria-expanded="false">${ICON.more}</button>
     </div>
   </header>
   <main class="view" id="view" tabindex="-1"></main>`;
@@ -74,7 +74,7 @@ document.querySelector('.tabs').addEventListener('click', (e) => {
 window.addEventListener('hashchange', route);
 subscribe(() => renderCurrent(false));
 
-// ── Меню демо ───────────────────────────────────────────────────────────────
+// ── Меню ───────────────────────────────────────────────────────────────
 const menuBtn = document.getElementById('menuBtn');
 function closeMenu() { document.querySelector('.menu')?.remove(); menuBtn.setAttribute('aria-expanded', 'false'); }
 menuBtn.addEventListener('click', (e) => {
@@ -89,8 +89,8 @@ menuBtn.addEventListener('click', (e) => {
     <button data-act="tazaru"><div class="grow"><b>Неделя Тазару күні</b><div class="xs muted">бонусы × 2 за сдачу</div></div><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
     <button data-act="theme"><div class="grow"><b>Тема</b><div class="xs muted">${theme === 'auto' ? 'как в системе' : theme === 'dark' ? 'тёмная' : 'светлая'}</div></div>${ICON.sun}</button>
     <hr>
-    <button data-act="clean">${ICON.reset}<div><b>Сбросить демо: чистый старт</b><div class="xs muted">кошелёк 0 — для сквозного сценария на видео</div></div></button>
-    <button data-act="ready">${ICON.wallet}<div><b>Сбросить демо: готовый кошелёк</b><div class="xs muted">+200 и +1 120 из документации, баланс 1 320</div></div></button>`;
+    <button data-act="clean">${ICON.reset}<div><b>Начать заново</b><div class="xs muted">пустой кошелёк и история</div></div></button>
+    <button data-act="ready">${ICON.wallet}<div><b>Восстановить пример</b><div class="xs muted">кошелёк с историей: 1 320 бонусов</div></div></button>`;
   document.querySelector('.topbar').appendChild(m);
   menuBtn.setAttribute('aria-expanded', 'true');
   m.addEventListener('click', (ev) => {
@@ -103,7 +103,7 @@ menuBtn.addEventListener('click', (e) => {
     if (act === 'clean' || act === 'ready') {
       SCREENS.forEach((s) => s.mod.home?.());
       reset(act);
-      toast(act === 'clean' ? 'Демо сброшено: чистый старт' : 'Демо сброшено: готовый кошелёк');
+      toast(act === 'clean' ? 'Данные очищены' : 'Пример восстановлен');
     }
     closeMenu();
   });

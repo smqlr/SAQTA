@@ -28,7 +28,7 @@ export function render(el, st) {
   <div class="screen-head"><div><h1>Панель акимата</h1><p class="muted">Пилот ${PILOT.months} · бюджет ${tenge(PILOT.budget)}</p></div></div>
   <div class="dash">
     <section class="card span-7" aria-label="Счётчик тонн">
-      <div class="card-title"><h2>Техника, выведенная из мусора</h2>${demoMark('факт — из действий в демо')}</div>
+      <div class="card-title"><h2>Техника, выведенная из мусора</h2></div>
       <div class="counter ${grew ? 'flash' : ''}" data-testid="tonnes">${t < 1 ? num2(t) : num1(t)} <small>т из ${num1(PILOT.goalT)} т</small></div>
       <div class="progress mt-12" aria-label="Прогресс к цели"><i style="width:${Math.min(100, (t / PILOT.goalT) * 100)}%"></i></div>
       <div class="row between xs muted mt-8"><span>факт ${num(kg)} кг</span><span>цель пилота ${num1(PILOT.goalT)} т за 6 месяцев</span></div>

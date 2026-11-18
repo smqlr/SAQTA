@@ -66,7 +66,7 @@ await writeFile(join(root, 'docs', 'index.html'), html);
 // PWA только для версии на GitHub Pages (на file:// main.js их не подключает)
 const version = createHash('sha1').update(html).digest('hex').slice(0, 10);
 await writeFile(join(root, 'docs', 'manifest.webmanifest'), JSON.stringify({
-  name: `${APP_NAME} — прототип`,
+  name: APP_NAME,
   short_name: APP_NAME,
   lang: 'ru',
   start_url: './',

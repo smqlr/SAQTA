@@ -46,7 +46,7 @@ export function render(el, st) {
     <div class="card flat mt-16 small muted">
       <b style="color:var(--text)">Откуда деньги на бонусы.</b> ${Math.round(WALLET.fundRevenueShare * 100)}% выручки хаба от продажи деталей и металла плюс стартовый фонд ${num(WALLET.fundStart)} ₸. Выплаты — ${WALLET.payoutCycle}. Юридически это выплата за сданное вторсырьё.
       <div class="mt-8">За что начисляем: телефон или планшет — ${BONUS.phone}, ноутбук — ${BONUS.laptop}, монитор или ТВ — ${BONUS.screen}, мелкая бытовая — ${BONUS.small}, вывоз крупной техники — ${BONUS.bigPickup}, роялти — ${Math.round(BONUS.royaltyShare * 100)}% цены проданных деталей. За зарядки и кабели — ${BONUS.cable}.</div>
-      <div class="mt-8"><span class="note-demo">макет</span> Демо-счёт: настоящих платежей нет.</div>
+      <div class="mt-8">Тестовый режим: платежи не проводятся.</div>
     </div>
   </div>`;
 
@@ -76,7 +76,7 @@ function openPartners(kind) {
     body.innerHTML = `<div class="stack">
       <div class="notice"><div class="ico">${kind === 'rides' ? ICON.bus : ICON.percent}</div><div class="small">
         Бонусы можно не выводить, а потратить на ${kind === 'rides' ? 'поездки' : 'скидки у партнёров'}. Партнёры подключаются в пилоте (${PILOT.months}).</div></div>
-      <p class="small muted">Условия и список партнёров появятся после договоров — в прототипе этот раздел пустой.</p>
+      <p class="small muted">Условия и список партнёров появятся после подписания договоров.</p>
       <button class="btn primary block" data-close>Понятно</button></div>`;
   });
 }
@@ -134,7 +134,7 @@ function openWithdraw() {
           </div>
           <div class="field"><label for="wCode">Код из SMS на подтверждённый номер</label>
             <input class="input big num" id="wCode" inputmode="numeric" autocomplete="one-time-code" maxlength="4" placeholder="••••" value="${w.code}">
-            <span class="hint">Демо: код ${DEMO_CODE}</span></div>
+            <span class="hint">Тестовый код: ${DEMO_CODE}</span></div>
           ${w.err ? `<p class="error" role="alert">${w.err}</p>` : ''}
           <div class="row"><button type="button" class="btn ghost" data-back>Назад</button><button class="btn primary grow" type="submit">Подтвердить вывод</button></div></form>`;
       } else {
@@ -143,7 +143,7 @@ function openWithdraw() {
           <h2>Заявка на вывод принята</h2>
           <div class="counter" style="font-size:36px">${num(w.amount)} ₸</div>
           <p class="muted small">на карту ${brand(w.card)} •• ${w.card.slice(-4)}<br>Статус: в обработке · выплата ${WALLET.payoutCycle}</p>
-          <span class="note-demo">макет: деньги не переводятся</span>
+          <span class="xs muted">Тестовый режим: платёж не проводится</span>
           <button class="btn primary block" data-close>Готово</button></div>`;
       }
       body.querySelector('input')?.focus();

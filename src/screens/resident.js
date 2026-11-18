@@ -85,7 +85,7 @@ function myDonations(st) {
         <div class="ico">${d.type === 'big' ? ICON.truck : ICON.box}</div>
         <div class="grow"><b>${esc(d.model)}</b> <span class="xs faint">${d.deviceNo}</span>
           <div class="xs muted">${STATUS[d.status] || d.status} · ${dateTime(d.ts)}</div>
-          ${d.status === 'awaiting-pickup' ? `<button class="btn sm ghost mt-8" data-pickup="${d.id}">${ICON.truck} Скупка забрала (демо)</button>` : ''}
+          ${d.status === 'awaiting-pickup' ? `<button class="btn sm ghost mt-8" data-pickup="${d.id}">${ICON.truck} Скупка забрала</button>` : ''}
         </div>
         <div class="amt ${['checked', 'sold', 'picked'].includes(d.status) ? 'pos' : 'faint'}">${d.bonus ? `+${num(d.bonus)}` : '0'}</div>
       </div>`,
@@ -100,8 +100,8 @@ function photo() {
   <h1>Фото устройства</h1>
   <img class="photo-prev mt-12" src="${ui.photoUrl}" alt="Ваше фото устройства">
   <div class="notice warn mt-12"><div class="ico">${ICON.info}</div><div class="small">
-    <b>Распознавание по фото в прототипе не подключено.</b><br>
-    В рабочей версии модель и видимые повреждения определяет ИИ, а техник хаба подтверждает. Сейчас выберите похожий пример или введите модель вручную.</div></div>
+    <b>Распознавание по фото недоступно без подключения к серверу.</b><br>
+    Выберите похожий пример или введите модель вручную — техник хаба подтвердит.</div></div>
   <div class="row between mt-16"><div class="section-label">Похожий пример</div>${demoMark('офлайн-примеры')}</div>
   ${examplesGrid()}
   <button class="btn ghost block mt-12" data-go="manual">${ICON.edit} Ввести модель вручную</button>`;
@@ -221,7 +221,7 @@ function receipt(st) {
     ${big ? `<div class="notice" style="text-align:left;width:100%"><div class="ico">${ICON.truck}</div><div class="small">${METHODS.pickup.hint}.</div></div>` : ''}
   </div>
   <div class="stack mt-16">
-    ${big ? `<button class="btn ghost block" data-pickup="${d.id}">${ICON.truck} Скупка забрала (демо)</button>` : `<button class="btn ghost block" data-to-hub="${d.deviceNo}">${ICON.hub} Посмотреть в хабе</button>`}
+    ${big ? `<button class="btn ghost block" data-pickup="${d.id}">${ICON.truck} Скупка забрала</button>` : `<button class="btn ghost block" data-to-hub="${d.deviceNo}">${ICON.hub} Посмотреть в хабе</button>`}
     <button class="btn primary block" data-go="start">Готово</button>
   </div>`;
 }
