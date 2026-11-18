@@ -1,11 +1,14 @@
 // Экран «Акимат»: счётчик тонн к цели 229,6 т, тонны по каналам, деньги РОП, рейтинг школ, сценарии.
 import { PILOT, ROP, SCENARIOS, BONUS_TOTALS, SCHOOL_LEAGUE, WEIGHT_KG } from '../data.js';
 import { num, num1, num2, tenge, dateTime, esc } from '../lib/format.js';
-import { demoMark } from '../lib/ui.js';
 import { ICON } from '../lib/icons.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
+import { pointCounts } from '../store.js';
+import { LEAGUE, BOXES, HUB, AKIMAT_PT, LANDFILLS } from '../geo/points.js';
+import { geo } from '../lib/map/geo.js';
+import { mountMap, setPins, setArea, fitTo } from '../lib/map/view.js';
 
-let ui = { scenario: 'base' };
+let ui = { scenario: 'base', fitted: false };
 let lastKg = null;
 export function home() {}
 
@@ -19,12 +22,15 @@ export function render(el, st) {
   lastKg = kg;
   const sc = SCENARIOS.find((s) => s.id === ui.scenario);
   const events = [...st.akimat.events].reverse().slice(0, 5);
-  const schools = Object.entries(st.akimat.schools).sort((a, b) => b[1] - a[1]);
+  const counts = pointCounts();
+  const schools = LEAGUE.map((s) => [s, counts[s.id] || 0]).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const viaPoints = Object.values(counts).reduce((a, b) => a + b, 0);
+  const layers = requestLayers(st);
   const maxFund = Math.max(...SCENARIOS.map((s) => s.fund));
 
   const maxT = Math.max(...PILOT.channels.map((x) => x.t));
   el.innerHTML = `
-  <div class="screen-head"><div><h1>Панель акимата</h1><p class="muted">Пилот ${PILOT.months} · бюджет ${tenge(PILOT.budget)}</p></div></div>
+  <div class="screen-head"><h1>Панель акимата</h1><p>Пилот: ${PILOT.months} · бюджет ${tenge(PILOT.budget)}</p></div>
   <div class="dash">
     <section class="card span-7" aria-label="Счётчик тонн">
       <div class="card-title"><h2>Техника, выведенная из мусора</h2></div>
@@ -44,21 +50,28 @@ export function render(el, st) {
       ${events.length ? `<div class="list">${events.map((e) => `<div class="li"><div class="ico">${ICON.scale}</div><div class="grow small"><b>+${num(e.kg)} кг</b> · ${esc(e.text)}
         ${e.rop != null ? `<div class="xs muted">РОП за эту технику ≈ ${tenge(e.rop)} на всю цепочку (${num(e.kg)} кг × ${num2(e.rate)} ₸ за т)</div>` : ''}
         <div class="xs faint">${dateTime(e.ts)}</div></div></div>`).join('')}</div>`
-        : '<div class="empty">Пока пусто. Сдайте технику на экранах «Житель», «Магазин» или «ОСИ».</div>'}
+        : '<div class="empty">Поступлений пока нет. Они появятся, когда технику сдадут жители, магазины или ОСИ.</div>'}
     </section>
 
     <section class="span-5 stack" aria-label="Главные цифры" style="align-content:start">
       <div class="kpis" style="grid-template-columns:repeat(2,1fr)">
-        <div class="kpi"><div class="v">≈ ${PILOT.recycleTargetPct}%</div><div class="l">доля переработки на рабочем темпе</div><div class="was">сейчас ${PILOT.recycleNowPct}%</div></div>
+        <div class="kpi"><div class="v">≈ ${PILOT.recycleTargetPct}%</div><div class="l">доля переработки на рабочем темпе</div><div class="was">Сейчас: ${PILOT.recycleNowPct}%</div></div>
         <div class="kpi"><div class="v">≈ ${num(PILOT.yearPaceT)} т</div><div class="l">в год после разгона, +${num1(PILOT.ppGain)} п.п.</div></div>
         <div class="kpi"><div class="v">${num1(PILOT.costPerKg)} ₸</div><div class="l">стоит пилоту килограмм техники</div></div>
         <div class="kpi"><div class="v">${num1(ROP.totalLostMln)} млн ₸</div><div class="l">РОП в год, который город не получает</div></div>
       </div>
       <div class="card">
-        <div class="card-title"><h2>Рейтинг школ</h2>${demoMark()}</div>
-        <div class="list">${schools.map(([name, n], i) => `<div class="li"><div class="ico" style="font-weight:700">${i + 1}</div><div class="grow"><b>${esc(name)}</b></div><div class="amt">${num(n)} шт.</div></div>`).join('')}</div>
-        <p class="xs muted mt-8">${SCHOOL_LEAGUE.schools} школ в Донор-лиге. Классы-победители получают ${SCHOOL_LEAGUE.prize}. Названия и числа — после договоров.</p>
+        <div class="card-title"><h2>Рейтинг школ</h2><span class="xs muted">Донор-лига</span></div>
+        <div class="list">${schools.map(([s, n], i) => `<div class="li"><div class="ico num-ico">${i + 1}</div><div class="grow"><b>${esc(s.name)}</b><div class="xs muted">${esc(s.address || '')}</div></div><div class="amt">${num(n)} шт.</div></div>`).join('')}</div>
+        <p class="xs muted mt-8">${SCHOOL_LEAGUE.schools} школ в Донор-лиге. Классы-победители получают ${SCHOOL_LEAGUE.prize}.</p>
       </div>
+    </section>
+
+    <section class="card span-12" aria-label="Карта сбора">
+      <div class="card-title"><h2>Карта сбора</h2>
+        <div class="legend"><span><i class="legend-dot p-school"></i>школы Донор-лиги · ${LEAGUE.length}</span><span><i class="legend-dot p-box"></i>боксы в ЦОН и вузах · ${BOXES.length}</span><span><i class="legend-dot p-pickup"></i>вывоз по заявке · ${layers.pickups.length}</span><span><i class="legend-dot p-osi"></i>бирки у бака · ${layers.osi.length}</span><span><i class="legend-dot p-store"></i>«Обратный рейс» · ${layers.reverse.length}</span><span><i class="legend-dot p-hub"></i>хаб</span><span><i class="legend-dot p-danger"></i>полигон ТБО</span></div></div>
+      <div class="map-card tall"><div class="map-slot" data-map></div></div>
+      <p class="xs muted mt-8">Сдано через школы и боксы: ${num(viaPoints)} шт. Цифра у точки — сколько вещей туда сдали. Сейчас техника из баков уходит на полигон ТБО, где мусор горит годами. Адреса: © участники OpenStreetMap, ${geo().date.split('-').reverse().join('.')}.</p>
     </section>
 
     <section class="card span-12" aria-label="Калькулятор сценариев">
@@ -121,8 +134,42 @@ export function render(el, st) {
     },
   });
 
+  attachMap(el, counts, layers);
+
   el.onclick = (e) => {
     const b = e.target.closest('[data-sc]');
     if (b) { ui.scenario = b.dataset.sc; render(el, st); }
   };
+}
+
+// Заявки с адресами: вывоз крупной техники жителям, бирки ОСИ, «Обратный рейс»
+function requestLayers(st) {
+  const pickups = st.donations.filter((d) => d.type === 'big' && d.lat != null)
+    .map((d) => ({ id: d.id, kind: 'pickup', name: `${d.model}: ${d.status === 'picked' ? 'вывезено' : 'ждёт вывоза'}`, address: d.address, lat: d.lat, lon: d.lon }));
+  const homes = new Map();
+  for (const t of st.osi.tags) {
+    if (t.lat == null) continue;
+    const h = homes.get(t.address) || { id: `osi:${t.address}`, kind: 'osi', name: `Бирки у бака`, address: t.address, lat: t.lat, lon: t.lon, count: 0 };
+    h.count++;
+    homes.set(t.address, h);
+  }
+  const reverse = st.shop.orders.filter((o) => o.pickupOld && o.lat != null)
+    .map((o) => ({ id: o.id, kind: 'reverse', name: `«Обратный рейс»: ${o.item.toLowerCase()} · ${o.crewDone ? 'забрали' : 'в пути'}`, address: o.address, lat: o.lat, lon: o.lon }));
+  return { pickups, osi: [...homes.values()], reverse };
+}
+
+function attachMap(el, counts, layers) {
+  const slot = el.querySelector('[data-map]');
+  if (!slot) return;
+  const m = mountMap(slot, 'akimat', { zoom: 12 });
+  const pts = [
+    ...LEAGUE.map((p) => ({ ...p, count: counts[p.id] || 0 })),
+    ...BOXES.map((p) => ({ ...p, count: counts[p.id] || 0 })),
+    { ...HUB, id: 'hub' },
+    { ...AKIMAT_PT, id: 'akimat', name: AKIMAT_PT.name },
+    ...LANDFILLS.map((l, i) => ({ ...l, id: `lf${i}`, name: l.official ? `Полигон ТБО «${l.official}»` : 'Полигон ТБО' })),
+  ];
+  setPins(m, 'points', [...pts, ...layers.pickups, ...layers.osi, ...layers.reverse]);
+  setArea(m, 'landfill', LANDFILLS[0] ? [LANDFILLS[0].lat, LANDFILLS[0].lon] : null, { label: 'Полигон ТБО' });
+  if (!ui.fitted) { ui.fitted = true; fitTo(m, [...LEAGUE, ...BOXES, ...LANDFILLS], { maxZoom: 13, padding: 20 }); }
 }

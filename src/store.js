@@ -2,18 +2,25 @@
 // Хранится в localStorage (если доступен), иначе в памяти. «Сбросить демо» возвращает пресет.
 import {
   BONUS, DEVICE_TYPES, EXAMPLES, WALLET, WEIGHT_KG, PARTS, SAMPLE_PASSPORT, SAMPLE_TAG_NO,
-  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, SCHOOLS, PILOT, SHOP_ITEMS,
+  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, PILOT, SHOP_ITEMS,
 } from './data.js';
+import { LEAGUE, pointById } from './geo/points.js';
 import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
 import { DAY, pad, num } from './lib/format.js';
 
-const KEY = 'unknown-demo-v1';
+const KEY = 'qaita-v4';
+const VERSION = 4; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных
 const listeners = new Set();
 let state;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const now = () => Date.now();
+// Способы очистки носителей для сертификата донору
+const WIPE = {
+  purge: 'Стирание по NIST SP 800-88 (Purge) с проверкой',
+  destroy: 'Физическое уничтожение носителя по NIST SP 800-88 (Destroy)',
+};
 
 function read() {
   try {
@@ -57,15 +64,26 @@ function seedBank(t) {
       id: uid(), passportNo: SAMPLE_PASSPORT.no, part: SAMPLE_PASSPORT.part, model: SAMPLE_PASSPORT.model,
       fromDevice: SAMPLE_PASSPORT.fromDevice, check: SAMPLE_PASSPORT.check, price: SAMPLE_PASSPORT.price,
       createdTs: t - 12 * DAY, // демо: деталь лежит 12 дней
-      sold: false, donationId: null, groupId: null, demo: true, hasOrder: true,
+      sold: false, donationId: null, groupId: null, demo: true, hasOrder: true, orderId: 'w1',
     },
+  ];
+}
+
+// Заявки мастерских (док: «Мастерская оставляет в приложении заявку на деталь, например „экран Samsung A50“»).
+// Экран A50 уже снят под первую заявку (образец QR-паспорта), на память Lenovo заявка есть (док: «Сценарий демо»).
+function seedOrders(t) {
+  const o = (id, no, model, part, status, extra = {}) => ({ id, no, shop: 'Мастерская-партнёр', model, part, status, ts: t - (10 - no) * DAY, ...extra }); // демо: название и даты заявок
+  return [
+    o('w1', 1, SAMPLE_PASSPORT.model, SAMPLE_PASSPORT.part, 'reserved', { deviceNo: SAMPLE_PASSPORT.fromDevice, partNo: SAMPLE_PASSPORT.no }),
+    o('w2', 2, 'Lenovo IdeaPad', 'Оперативная память', 'open'),
+    o('w3', 3, SAMPLE_PASSPORT.model, SAMPLE_PASSPORT.part, 'open'),
   ];
 }
 
 export function initialState(preset = 'ready') {
   const t = now();
   const s = {
-    v: 1,
+    v: VERSION,
     preset,
     tazaru: false,
     seq: { device: 786, part: 4513, tag: 143 }, // демо: следующие номера после образцов из документации
@@ -74,16 +92,20 @@ export function initialState(preset = 'ready') {
     donations: [],
     hub: { queue: seedHub(t), selected: null },
     bank: seedBank(t),
-    akimat: { kg: { reverse: 0, osi: 0, amnesty: 0, requests: 0, hub: 0 }, events: [], schools: Object.fromEntries(SCHOOLS.map((n) => [n, 0])) },
+    akimat: { kg: { reverse: 0, osi: 0, amnesty: 0, requests: 0, hub: 0 }, events: [] },
     shop: { orders: [], crewEarned: 0 },
-    osi: { balance: 0, tags: [] },
+    workshop: { orders: seedOrders(t), seq: 4 },
+    certs: [],
+    osi: { balance: 0, tags: [], home: null },
     test30Runs: 0,
   };
   if (preset === 'ready') {
     // Решение команды 18.11: в демо-кошельке «сдача ноутбука +200» и «роялти +1 120» (итого 1 320)
-    const d = { id: uid(), ts: t - 3 * DAY, deviceNo: 'D-000780', model: 'Lenovo IdeaPad', type: 'laptop', state: 'разбит корпус', tag: 'donor', method: 'school', school: SCHOOLS[0], exampleId: 'lenovo', status: 'sold', bonus: DEMO_WALLET.laptopBonus };
+    const school = LEAGUE[0]; // демо: школа из Донор-лиги для сдачи из примера
+    const cert = { id: uid(), no: 'WD-000780', deviceNo: 'D-000780', model: 'Lenovo IdeaPad', ts: t - 3 * DAY + 3600000, method: WIPE.purge, by: 'Хаб QAITA' };
+    const d = { id: uid(), ts: t - 3 * DAY, deviceNo: 'D-000780', model: 'Lenovo IdeaPad', type: 'laptop', state: 'разбит корпус', tag: 'donor', method: 'school', pointId: school.id, point: school.name, address: school.address || '', lat: school.lat, lon: school.lon, exampleId: 'lenovo', status: 'sold', bonus: DEMO_WALLET.laptopBonus, certId: cert.id };
     s.donations.push(d);
-    s.akimat.schools[SCHOOLS[0]] += 1;
+    s.certs.push(cert);
     s.wallet.tx.push(
       { id: uid(), ts: t - 3 * DAY + 3600000, kind: 'accrual', title: 'Сдача ноутбука', sub: 'Lenovo IdeaPad · D-000780', amount: DEMO_WALLET.laptopBonus, status: 'Зачислено' },
       { id: uid(), ts: t - DAY, kind: 'royalty', title: 'Роялти', sub: 'Детали Lenovo IdeaPad проданы', amount: DEMO_WALLET.laptopRoyalty, status: 'Зачислено' },
@@ -95,7 +117,7 @@ export function initialState(preset = 'ready') {
 }
 
 state = read() || initialState('ready');
-if (!state || state.v !== 1) state = initialState('ready');
+if (!state || state.v !== VERSION) state = initialState('ready');
 
 // ── Подписка ────────────────────────────────────────────────────────────────
 export const getState = () => state;
@@ -151,7 +173,9 @@ export function donationsThisMonth() {
 }
 
 // ── Житель ──────────────────────────────────────────────────────────────────
-export function submitDonation({ exampleId, manual, method, school }) {
+// pointId — школа Донор-лиги или бокс в ЦОН/вузе на карте (для вывоза крупной техники — нет)
+// pickup — адрес и время вывоза крупной техники: { label, lat, lon, slot }
+export function submitDonation({ exampleId, manual, method, pointId, pickup = null }) {
   if (donationsThisMonth() >= WALLET.monthlyDeviceLimit) {
     const err = new Error('limit');
     err.code = 'limit';
@@ -163,13 +187,17 @@ export function submitDonation({ exampleId, manual, method, school }) {
   const stateText = ex ? ex.state : manual.stateText;
   const tag = ex ? ex.tag : suggestTag(manual.type, manual.condition);
   const big = DEVICE_TYPES[type].big;
+  const pt = big ? null : pointById(pointId);
+  if (!big && !pt) throw new Error('point');
+  if (big && !pickup) throw new Error('address');
+  const where = pt || pickup;
   const d = {
     id: uid(), ts: now(), deviceNo: nextDevice(), model, type, state: stateText, tag, method,
-    school: method === 'school' ? school : null, exampleId: ex ? ex.id : null,
+    pointId: pt?.id || null, point: pt?.name || null, address: pt ? pt.address || null : pickup.label,
+    lat: where.lat, lon: where.lon, slot: pickup?.slot || null, exampleId: ex ? ex.id : null,
     status: big ? 'awaiting-pickup' : 'sent', bonus: DEVICE_TYPES[type].bonus * mult(),
   };
   state.donations.push(d);
-  if (d.school) state.akimat.schools[d.school] = (state.akimat.schools[d.school] || 0) + 1;
   if (!big) {
     state.hub.queue.unshift({
       id: uid(), deviceNo: d.deviceNo, exampleId: d.exampleId, model, type, state: stateText,
@@ -180,12 +208,19 @@ export function submitDonation({ exampleId, manual, method, school }) {
   return d;
 }
 
+// Сколько вещей сдано в каждую точку (школы — для рейтинга Донор-лиги и карты акимата)
+export function pointCounts() {
+  const c = {};
+  for (const d of state.donations) if (d.pointId) c[d.pointId] = (c[d.pointId] || 0) + 1;
+  return c;
+}
+
 export function residentPickupDone(donationId) {
   const d = state.donations.find((x) => x.id === donationId);
   if (!d || d.status !== 'awaiting-pickup') return;
   d.status = 'picked';
   credit(d.bonus, 'accrual', 'Вывоз крупной техники', `${d.model} · ${d.deviceNo}`);
-  addKg('requests', WEIGHT_KG.residentPickup, `${d.model}: вывоз по заявке жителя`);
+  addKg('requests', WEIGHT_KG.residentPickup, `${d.model}: вывоз по заявке жителя`, { lat: d.lat, lon: d.lon, address: d.address });
   note('Технику забрали', `${d.model}: скупка забрала технику и выдала акт с весом. +${num(d.bonus)} бонусов.`, 'bonus');
   commit({ type: 'pickup', donation: d });
 }
@@ -194,6 +229,39 @@ export function residentPickupDone(donationId) {
 export function selectHubItem(id) {
   state.hub.selected = id;
   commit({ type: 'select' });
+}
+
+// ── Мастерские ──────────────────────────────────────────────────────────────
+const orderMatch = (o, model, part) => o.model === model && o.part === part;
+// Есть ли заявка на деталь: свободная или уже закреплённая за этим устройством.
+// Без заявки — false, а если в документации нет данных о спросе (null) и заявок нет — null.
+export function hasOrderFor(p, model, deviceNo = null) {
+  const any = state.workshop.orders.some((o) => orderMatch(o, model, p.name) && (o.status === 'open' || (deviceNo && o.deviceNo === deviceNo)));
+  if (any) return true;
+  return p.hasOrder === null ? null : false;
+}
+export function addWorkshopOrder({ shop, model, part }) {
+  const o = { id: uid(), no: state.workshop.seq++, shop: shop || 'Мастерская-партнёр', model, part, status: 'open', ts: now() };
+  state.workshop.orders.push(o);
+  commit({ type: 'workshop-order', order: o });
+  return o;
+}
+export function cancelWorkshopOrder(id) {
+  const o = state.workshop.orders.find((x) => x.id === id);
+  if (!o || o.status !== 'open') return;
+  o.status = 'cancelled';
+  commit({ type: 'workshop-cancel', order: o });
+}
+
+// ── Сертификат стирания данных (док: «Стирание или физическое уничтожение носителя, сертификат донору в приложении») ──
+function issueCert(d, tag) {
+  const c = {
+    id: uid(), no: `WD-${d.deviceNo.slice(2)}`, deviceNo: d.deviceNo, model: d.model, ts: now(),
+    method: tag === 'whole' || tag === 'donor' ? WIPE.purge : WIPE.destroy, by: 'Хаб QAITA',
+  };
+  state.certs.push(c);
+  d.certId = c.id;
+  return c;
 }
 
 export function triage(itemId, tag) {
@@ -207,13 +275,17 @@ export function triage(itemId, tag) {
   if (tag === 'donor' && ex && ex.parts.length) {
     const groupId = ex.royalty ? uid() : null;
     for (const p of ex.parts) {
-      const ev = expectedValue(p);
-      const take = ev == null ? true : ev > 0; // для Lenovo цены уточняются — снимаем по заявке из сценария демо
+      const hasOrder = hasOrderFor(p, ex.model);
+      const ev = expectedValue({ ...p, hasOrder });
+      const take = ev == null ? true : ev > 0; // для Lenovo цен нет в документации — снимаем по сценарию демо
       if (!take) continue;
+      const order = state.workshop.orders.find((o) => o.status === 'open' && orderMatch(o, ex.model, p.name));
+      const passportNo = nextPart();
+      if (order) Object.assign(order, { status: 'reserved', deviceNo: item.deviceNo, partNo: passportNo });
       state.bank.unshift({
-        id: uid(), passportNo: nextPart(), part: p.name, model: ex.model, fromDevice: item.deviceNo,
+        id: uid(), passportNo, part: p.name, model: ex.model, fromDevice: item.deviceNo,
         check: p.price == null ? 'проверка ТЕСТ-30 / стенд' : 'проверена', price: p.price, createdTs: now(),
-        sold: false, donationId: item.donationId, groupId, goesTo: p.goesTo || null, hasOrder: p.hasOrder, demo: false,
+        sold: false, donationId: item.donationId, groupId, goesTo: p.goesTo || null, hasOrder: !!order || hasOrder, orderId: order?.id || null, demo: false,
       });
     }
   }
@@ -223,9 +295,10 @@ export function triage(itemId, tag) {
       d.status = 'checked';
       d.tag = tag;
       credit(d.bonus, 'accrual', `Сдача: ${DEVICE_TYPES[d.type].label.toLowerCase().split(',')[0]}`, `${d.model} · ${d.deviceNo}`);
+      const cert = ['phone', 'laptop'].includes(d.type) ? issueCert(d, tag) : null;
       note(
         'Устройство проверено в хабе',
-        `${d.model} (${d.deviceNo}) получил бирку и прошёл проверку.${d.bonus ? ` +${num(d.bonus)} бонусов.` : ' За зарядки и кабели бонусов нет.'}${['phone', 'laptop'].includes(d.type) ? ' Данные стёрты, сертификат — в истории.' : ''}`,
+        `${d.model} (${d.deviceNo}) получил бирку и прошёл проверку.${d.bonus ? ` +${num(d.bonus)} бонусов.` : ' За зарядки и кабели бонусов нет.'}${cert ? ` Данные стёрты: сертификат ${cert.no} в кошельке.` : ''}`,
         'bonus',
       );
     }
@@ -253,7 +326,12 @@ export function sellPart(partId) {
   const part = state.bank.find((x) => x.id === partId);
   if (!part || part.sold) return null;
   const group = part.groupId ? state.bank.filter((x) => x.groupId === part.groupId) : [part];
-  group.forEach((p) => { p.sold = true; p.soldTs = now(); });
+  group.forEach((p) => {
+    p.sold = true;
+    p.soldTs = now();
+    const o = p.orderId && state.workshop.orders.find((x) => x.id === p.orderId);
+    if (o) { o.status = 'done'; o.doneTs = now(); } // деталь выдана мастерской с QR-паспортом и гарантией
+  });
   const ex = EXAMPLES.find((e) => e.model === part.model);
   let royalty = null;
   let toDonor = null;
@@ -293,12 +371,14 @@ export const unreadCount = () => state.notes.filter((n) => n.unread).length;
 export const ropRate = (item) => ROP.rows.find((r) => r.name === item.rop)?.rate ?? null;
 export const ropTenge = (kg, rate) => (rate == null ? null : Math.round((kg / 1000) * rate)); // ставка РОП × вес
 
-export function placeOrder(itemId, pickupOld) {
+// addr — адрес доставки: { label, lat, lon }
+export function placeOrder(itemId, pickupOld, addr = null) {
   const it = SHOP_ITEMS.find((x) => x.id === itemId) || SHOP_ITEMS[0];
   const rate = ropRate(it);
   const o = {
     id: uid(), ts: now(), itemId: it.id, item: it.name, kg: it.kg, rate, rop: ropTenge(it.kg, rate),
     pickupOld, crewDone: false, no: `${state.shop.orders.length + 1}`,
+    address: addr?.label || null, lat: addr?.lat ?? null, lon: addr?.lon ?? null,
   };
   state.shop.orders.push(o);
   commit({ type: 'order', order: o });
@@ -309,13 +389,18 @@ export function crewPickup(orderId) {
   if (!o || o.crewDone || !o.pickupOld) return;
   o.crewDone = true;
   state.shop.crewEarned += PILOT.crewPremium;
-  addKg('reverse', o.kg, `${o.item}: «Обратный рейс»`, { rop: o.rop, rate: o.rate });
+  addKg('reverse', o.kg, `${o.item}: «Обратный рейс»`, { rop: o.rop, rate: o.rate, lat: o.lat, lon: o.lon, address: o.address });
   commit({ type: 'crew', order: o });
 }
 
 // ── ОСИ ─────────────────────────────────────────────────────────────────────
+export function osiSetHome(addr) {
+  state.osi.home = addr ? { label: addr.label, lat: addr.lat, lon: addr.lon } : null;
+  commit({ type: 'osi-home' });
+}
 export function osiMark({ kind, what, photo }) {
-  const t = { id: uid(), no: `B-${pad(state.seq.tag++, 4)}`, kind, what, photo: !!photo, ts: now(), status: 'marked' };
+  const h = state.osi.home;
+  const t = { id: uid(), no: `B-${pad(state.seq.tag++, 4)}`, kind, what, photo: !!photo, ts: now(), status: 'marked', address: h?.label || null, lat: h?.lat ?? null, lon: h?.lon ?? null };
   state.osi.tags.unshift(t);
   commit({ type: 'osi-mark', tag: t });
   return t;
@@ -326,8 +411,9 @@ export function osiPickup(tagId) {
   t.status = 'picked';
   const bonus = t.kind === 'big' ? BONUS.osiBig : BONUS.osiSmall;
   state.osi.balance += bonus;
-  if (t.kind === 'big') addKg('osi', WEIGHT_KG.osiBig, `${t.what}: «Бирка у бака»`);
-  else addKg('hub', WEIGHT_KG.hubAvg, `${t.what}: «Бирка у бака», мелкое — маршрут в хаб`);
+  const at = { lat: t.lat, lon: t.lon, address: t.address };
+  if (t.kind === 'big') addKg('osi', WEIGHT_KG.osiBig, `${t.what}: «Бирка у бака»`, at);
+  else addKg('hub', WEIGHT_KG.hubAvg, `${t.what}: «Бирка у бака», мелкое — маршрут в хаб`, at);
   commit({ type: 'osi-pickup', tag: t, bonus });
 }
 

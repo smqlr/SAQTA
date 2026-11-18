@@ -1,15 +1,20 @@
 // Экран «Хаб»: очередь с бирками, расчёт EV, «Спроси устройство», ТЕСТ-30, банк деталей с QR-паспортом.
 import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS } from '../data.js';
-import { getState, selectHubItem, triage, askDevice, runCells, sellPart } from '../store.js';
+import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder } from '../store.js';
 import { expectedValue, decision, evExplain, pSell } from '../lib/ev.js';
 import { parseBatteryReport, stateOfHealth } from '../lib/battery-report.js';
 import { ART } from '../lib/art.js';
 import { ICON } from '../lib/icons.js';
 import { qrSvg } from '../lib/qr.js';
 import { num, esc, tenge, DAY, dateTime } from '../lib/format.js';
-import { tagChip, demoMark, simMark, realMark, tbd, sheet, toast } from '../lib/ui.js';
+import { tagChip, simMark, realMark, sheet, toast } from '../lib/ui.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
+import { HUB, BOXES, pointById } from '../geo/points.js';
+import { tour, fmtKm, fmtMin } from '../lib/map/route.js';
+import { mountMap, setPins, setLine, fitTo } from '../lib/map/view.js';
 
+const dash = '<span class="faint">—</span>';
+let trip = null; // последний построенный маршрут Газели: { sig, stops, res }
 let ui = { pick: null, running: false, lastRun: null };
 export function home() { ui = { pick: null, running: false, lastRun: ui.lastRun }; }
 
@@ -26,7 +31,7 @@ export function render(el, st) {
   if (ui.pick && ui.pick.itemId !== sel?.id) ui.pick = null;
 
   el.innerHTML = `
-  <div class="screen-head"><div><h1>Хаб</h1><p class="muted">Мастерская-лаборатория: приёмка, триаж за ${ECON.triageSec} секунд, детали только под заказ</p></div></div>
+  <div class="screen-head"><h1>Хаб</h1><p>Приёмка, триаж за ${ECON.triageSec} секунд, детали только под заказ</p></div>
   <div class="kpis">
     ${kpi(tenge(ECON.deviceProcessing), 'обработка одного устройства', tenge(ECON.checkNow))}
     ${kpi(`≈ ${tenge(ECON.cellTenge)}`, `проверка ячейки, ${TEST30.seconds} с`, `${tenge(ECON.cellNowTenge)}, ${ECON.cellNowMin} мин`)}
@@ -41,19 +46,22 @@ export function render(el, st) {
     </section>
     <section class="card span-8" aria-label="Устройство">${sel ? detail(sel) : '<div class="empty">Очередь пуста</div>'}</section>
     <section class="card span-12" id="test30" aria-label="ТЕСТ-30">${test30Card(sel)}</section>
+    <section class="card span-12" aria-label="Заявки мастерских">${ordersCard(st)}</section>
     <section class="card span-12" aria-label="Банк деталей">${bankCard(st)}</section>
+    <section class="card span-12" aria-label="Маршрут сбора">${routeCard(st)}</section>
   </div>`;
 
   drawTestChart(el);
+  attachRouteMap(el);
   bind(el, sel);
 }
 
-const kpi = (v, l, was) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${was ? `<div class="was">было ${was}</div>` : ''}</div>`;
+const kpi = (v, l, was) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${was ? `<div class="was">Было: ${was}</div>` : ''}</div>`;
 
 function queueItem(it, sel) {
   return `<button class="qi" data-select="${it.id}" aria-current="${it.id === sel?.id}">
     ${ART[artOf(it)](it.model)}
-    <span class="grow"><b class="small">${esc(it.model)}</b><br><span class="xs muted">${it.deviceNo}${it.demo ? ' · пример' : ' · от жителя'}</span></span>
+    <span class="grow"><b class="small">${esc(it.model)}</b><br><span class="xs muted">${it.deviceNo}${it.demo ? '' : ' · от жителя'}</span></span>
     ${it.status === 'new' ? `<span class="stack" style="gap:2px;justify-items:end">${!it.demo ? '<span class="new">новое</span>' : ''}${tagChip(null)}</span>` : tagChip(it.tag)}
   </button>`;
 }
@@ -66,7 +74,7 @@ function detail(it) {
   <div class="row" style="align-items:flex-start;gap:14px">
     <div style="width:84px;flex:none">${ART[artOf(it)](it.model)}</div>
     <div class="grow">
-      <div class="row wrap" style="gap:6px">${tagChip(it.tag)}${it.demo ? demoMark() : '<span class="note-demo note-real">от жителя</span>'}</div>
+      <div class="row wrap" style="gap:8px">${tagChip(it.tag)}${it.demo ? '' : '<span class="note-demo note-real">от жителя</span>'}</div>
       <h2 class="mt-8">${esc(it.model)}</h2>
       <div class="small muted">${it.deviceNo} · ${esc(it.state || '')} · принято ${dateTime(it.ts)}</div>
     </div>
@@ -74,7 +82,7 @@ function detail(it) {
 
   ${it.status === 'new' ? `
   <div class="section-label mt-16">Триаж</div>
-  <p class="small muted">ИИ смотрит фото и предлагает бирку, техник подтверждает.</p>
+  <p class="small muted">Бирку предлагает распознавание по фото и модели, техник подтверждает.</p>
   <div class="row wrap mt-8" role="group" aria-label="Бирка">
     ${Object.keys(TAGS).map((t) => `<button class="btn sm ${chosen === t ? 'primary' : 'ghost'}" data-tag="${t}" aria-pressed="${chosen === t}">${TAGS[t].label}${t === it.suggestedTag ? ' · предложено' : ''}</button>`).join('')}
   </div>
@@ -83,30 +91,31 @@ function detail(it) {
   ${it.donationId ? `<p class="xs muted mt-8">После подтверждения житель получит бонусы в кошелёк.</p>` : ''}`
   : `<p class="small mt-12"><b>${TAGS[it.tag].label}:</b> <span class="muted">${TAGS[it.tag].hint}</span></p>`}
 
-  ${ex?.parts?.length ? evTable(ex) : ''}
+  ${ex?.parts?.length ? evTable(ex, it) : ''}
   ${it.type === 'laptop' ? askBlock(it) : ''}`;
 }
 
-function evTable(ex) {
+function evTable(ex, it) {
+  const parts = ex.parts.map((p) => ({ ...p, hasOrder: hasOrderFor(p, ex.model, it.deviceNo) }));
   return `
   <div class="section-label mt-16">Ожидаемая ценность деталей (EV)</div>
   <div class="formula">EV = P(работает) × цена × P(купят за ${EV.sellDays} дней) − t<sub>мин</sub> × ${EV.tengePerMinute}</div>
   <p class="xs muted mt-8">P(купят) = ${String(EV.pSellWithOrder).replace('.', ',')}, если на деталь есть заявка мастерской, и ${String(EV.pSellNoOrder).replace('.', ',')}, если нет. Деталь снимаем, только если EV больше нуля.</p>
   <div class="table-wrap mt-8"><table>
     <thead><tr><th>Деталь</th><th class="r">P(работает)</th><th class="r">Цена</th><th>Заявка</th><th class="r">P(купят)</th><th class="r">t, мин</th><th class="r">EV</th><th>Решение</th></tr></thead>
-    <tbody>${ex.parts.map((p) => {
+    <tbody>${parts.map((p) => {
       const ev = expectedValue(p);
       const dcs = decision(ev);
       const ps = pSell(p);
       return `<tr>
         <td><b>${esc(p.name)}</b>${ev == null ? '' : `<div class="xs muted nowrap">${esc(evExplain(p, num))}</div>`}</td>
-        <td class="r">${p.pWorks == null ? tbd() : String(p.pWorks).replace('.', ',')}</td>
-        <td class="r">${p.price == null ? tbd() : tenge(p.price)}</td>
-        <td>${p.hasOrder == null ? tbd() : p.hasOrder ? 'есть' : 'нет'}</td>
-        <td class="r">${ps == null ? tbd() : String(ps).replace('.', ',')}</td>
-        <td class="r">${p.minutes == null ? tbd() : p.minutes}</td>
-        <td class="r"><b>${ev == null ? tbd() : `${ev > 0 ? '+' : '−'}${num(Math.abs(ev))} ₸`}</b></td>
-        <td>${dcs.take == null ? (p.hasOrder ? '<b>под заявку</b>' : tbd()) : dcs.take ? '<b style="color:var(--tag-whole)">снимаем</b>' : '<span class="muted">оставляем</span>'}</td>
+        <td class="r">${p.pWorks == null ? dash : String(p.pWorks).replace('.', ',')}</td>
+        <td class="r">${p.price == null ? dash : tenge(p.price)}</td>
+        <td>${p.hasOrder == null ? dash : p.hasOrder ? 'есть' : 'нет'}</td>
+        <td class="r">${ps == null ? dash : String(ps).replace('.', ',')}</td>
+        <td class="r">${p.minutes == null ? dash : p.minutes}</td>
+        <td class="r"><b>${ev == null ? dash : `${ev > 0 ? '+' : '−'}${num(Math.abs(ev))} ₸`}</b></td>
+        <td>${dcs.take == null ? (p.hasOrder ? '<b style="color:var(--tag-whole)">под заявку</b>' : '<span class="muted">ждём заявку</span>') : dcs.take ? '<b style="color:var(--tag-whole)">снимаем</b>' : '<span class="muted">оставляем</span>'}</td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
 }
@@ -155,7 +164,7 @@ function test30Card(sel) {
     </div>
     <div class="span-7">
       <div class="row between"><b class="small">Кривые напряжения, В</b><div class="legend"><span><i style="background:var(--grade-a)"></i>A</span><span><i style="background:var(--grade-b)"></i>B</span><span><i style="background:var(--grade-c)"></i>C</span></div></div>
-      <div class="chart-box mt-8">${r ? '<canvas id="t30chart" aria-label="Кривые напряжения 16 ячеек"></canvas>' : `<div class="empty" style="height:100%;display:grid;place-items:center">Нажмите «Запустить» — стенд даст импульс нагрузки и построит кривые</div>`}</div>
+      <div class="chart-box mt-8">${r ? '<canvas id="t30chart" aria-label="Кривые напряжения 16 ячеек"></canvas>' : `<div class="empty" style="height:100%;display:grid;place-items:center">Нажмите «Запустить»: стенд даст импульс нагрузки и построит кривые</div>`}</div>
       ${r ? `<p class="xs muted mt-8">Ток импульса ≈ ${String(r.results[0].current).replace('.', ',')} А. Время теста — ${TEST30.seconds} с на все ${TEST30.cells} ячеек одновременно (вручную — ${ECON.cellNowMin} минут на одну).</p>` : ''}
     </div>
   </div>`;
@@ -210,8 +219,14 @@ function bankCard(st) {
 function shelf(p) {
   const days = Math.floor((Date.now() - p.createdTs) / DAY);
   const left = Math.max(0, PARTS.unsoldDays - days);
-  return `<div class="row between xs mt-8"><span class="muted">на полке ${days} дн. из ${PARTS.unsoldDays}</span><span class="${left < 15 ? 'tbd' : 'muted'}">осталось ${left} дн.</span></div>
+  return `<div class="row between xs mt-8"><span class="muted">на полке ${days} дн. из ${PARTS.unsoldDays}</span><span style="color:${left < 15 ? 'var(--warn)' : 'var(--muted)'};font-weight:${left < 15 ? 600 : 400}">осталось ${left} дн.</span></div>
   <div class="progress" style="height:6px"><i style="width:${Math.min(100, (days / PARTS.unsoldDays) * 100)}%"></i></div>`;
+}
+
+function orderLine(p) {
+  const o = p.orderId && getState().workshop.orders.find((x) => x.id === p.orderId);
+  if (o) return `<span class="xs" style="color:var(--brand);font-weight:600">заявка №${o.no} · ${esc(o.shop)}</span>`;
+  return p.hasOrder ? '<span class="xs" style="color:var(--brand);font-weight:600">есть заявка мастерской</span>' : '';
 }
 
 function passport(p) {
@@ -219,13 +234,13 @@ function passport(p) {
   return `<div class="passport">
     <div class="qr-sm">${qrSvg(`${APP_NAME}:part:${p.passportNo}`, { label: `QR-паспорт ${p.passportNo}` })}</div>
     <div class="lines">
-      <span class="xs muted">${APP_NAME} · деталь № ${p.passportNo}${p.demo ? ' (образец)' : ''}</span>
+      <span class="xs muted">${APP_NAME} · деталь № ${p.passportNo}</span>
       <b>${esc(p.part)} · ${esc(p.model)}</b>
       <span>Из устройства № ${p.fromDevice}, данные стёрты</span>
       <span>Проверка: ${esc(p.check)}</span>
-      <span>Гарантия ${PARTS.warrantyDays} дней · цена ${p.price == null ? tbd() : tenge(p.price)}</span>
-      ${p.hasOrder ? '<span class="xs" style="color:var(--brand);font-weight:600">есть заявка мастерской</span>' : ''}
-      ${p.sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано${royalty ? ` · роялти донору +${num(royalty)}` : ''}</span>` : `${shelf(p)}<button class="btn sm ghost mt-8" style="justify-self:start" data-sell="${p.id}">Отметить продажу</button>`}
+      <span>Гарантия ${PARTS.warrantyDays} дней${p.price == null ? '' : ` · цена ${tenge(p.price)}`}</span>
+      ${orderLine(p)}
+      ${p.sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">${p.orderId ? 'выдана мастерской' : 'продано'}${royalty ? ` · роялти донору +${num(royalty)}` : ''}</span>` : `${shelf(p)}<button class="btn sm ${p.orderId ? 'primary' : 'ghost'} mt-8" style="justify-self:start" data-sell="${p.id}">${p.orderId ? 'Выдать мастерской' : 'Отметить продажу'}</button>`}
     </div></div>`;
 }
 
@@ -239,9 +254,109 @@ function groupCard(g) {
       <span class="xs muted">${APP_NAME} · детали устройства № ${first.fromDevice}</span>
       <b>${esc(first.model)}: ${g.length} детали под заказ</b>
       ${g.map((p) => `<span>${p.passportNo} · ${esc(p.part)}${p.goesTo ? ` → ${esc(p.goesTo)}` : ''}${p.hasOrder ? ' · <b style="color:var(--brand)">заявка</b>' : ''}</span>`).join('')}
-      <span>Гарантия ${PARTS.warrantyDays} дней · цены ${tbd()}</span>
+      <span>Гарантия ${PARTS.warrantyDays} дней на каждую деталь</span>
       ${sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано · роялти донору +${num(ex?.royalty)}</span>` : `${shelf(first)}<button class="btn sm primary mt-8" style="justify-self:start" data-sell="${first.id}">Детали проданы</button>`}
     </div></div>`;
+}
+
+// ── Заявки мастерских ───────────────────────────────────────────────────────
+// Разборка под заказ: заявка мастерской поднимает P(купят) с 0,2 до 0,9, и EV детали пересчитывается
+const ORDER_STATUS = {
+  open: ['ждёт деталь', ''],
+  reserved: ['деталь снята и проверена', 'ok'],
+  done: ['выдана мастерской', 'ok'],
+  cancelled: ['отменена', ''],
+};
+const partModels = EXAMPLES.filter((e) => e.parts.length);
+function ordersCard(st) {
+  const f = ui.order || (ui.order = { model: partModels[0].id, part: 0, shop: 'Мастерская-партнёр' });
+  const ex = partModels.find((e) => e.id === f.model);
+  const list = [...st.workshop.orders].reverse();
+  return `
+  <div class="card-title"><h2>Заявки мастерских</h2><span class="xs muted">деталь снимаем, только когда её ждут</span></div>
+  <div class="dash">
+    <div class="span-7"><div class="list" data-testid="orders">${list.map((o) => {
+      const [label, kind] = ORDER_STATUS[o.status];
+      return `<div class="li"><div class="ico ${o.status === 'open' ? 'orange' : o.status === 'cancelled' ? 'gray' : ''}">${ICON.wrench}</div>
+        <div class="grow"><b>№${o.no} · ${esc(o.part)}</b> <span class="small">· ${esc(o.model)}</span>
+          <div class="xs muted">${esc(o.shop)} · ${dateTime(o.ts)}${o.partNo ? ` · деталь ${o.partNo}` : ''}</div>
+          <span class="status-pill ${kind} mt-8">${label}</span></div>
+        ${o.status === 'open' ? `<button class="btn sm plain" data-cancel-order="${o.id}">Отменить</button>` : ''}</div>`;
+    }).join('')}</div></div>
+    <form class="span-5 card flat stack" id="orderForm" style="align-self:start">
+      <b>Новая заявка</b>
+      <div class="field"><label for="oModel">Модель</label><select class="input" id="oModel">${partModels.map((e) => `<option value="${e.id}" ${e.id === f.model ? 'selected' : ''}>${esc(e.model)}</option>`).join('')}</select></div>
+      <div class="field"><label for="oPart">Деталь</label><select class="input" id="oPart">${ex.parts.map((p, i) => `<option value="${i}" ${i === f.part ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="field"><label for="oShop">Мастерская</label><input class="input" id="oShop" maxlength="40" value="${esc(f.shop)}"></div>
+      <button class="btn primary block" type="submit">${ICON.plus} Добавить заявку</button>
+      <p class="xs muted">EV детали в карточке устройства пересчитается сразу: P(купят) станет ${String(EV.pSellWithOrder).replace('.', ',')} вместо ${String(EV.pSellNoOrder).replace('.', ',')}.</p>
+    </form>
+  </div>`;
+}
+
+// ── Маршрут Газели ──────────────────────────────────────────────────────────
+// Раз в неделю: все боксы в ЦОН и вузах, школы с вещами в коробе и мелкая техника с «бирок у бака»
+function routeStops(st) {
+  const stops = BOXES.map((b) => ({ id: b.id, kind: b.kind, name: b.name, address: b.address, lat: b.lat, lon: b.lon, items: 0 }));
+  for (const d of st.donations) {
+    if (d.status !== 'sent' || !d.pointId) continue;
+    let s = stops.find((x) => x.id === d.pointId);
+    if (!s) { const p = pointById(d.pointId); s = { id: p.id, kind: p.kind, name: p.name, address: p.address, lat: p.lat, lon: p.lon, items: 0 }; stops.push(s); }
+    s.items++;
+  }
+  for (const t of st.osi.tags) {
+    if (t.kind !== 'small' || t.status !== 'marked' || t.lat == null) continue;
+    let s = stops.find((x) => x.id === `osi:${t.address}`);
+    if (!s) { s = { id: `osi:${t.address}`, kind: 'osi', name: `Бирка у бака: ${t.address}`, address: t.address, lat: t.lat, lon: t.lon, items: 0 }; stops.push(s); }
+    s.items++;
+  }
+  return stops;
+}
+const sigOf = (stops) => stops.map((s) => `${s.id}:${s.items}`).join('|');
+
+function routeCard(st) {
+  const stops = routeStops(st);
+  const fresh = trip && trip.sig === sigOf(stops) ? trip : null;
+  const items = stops.reduce((a, s) => a + s.items, 0);
+  return `
+  <div class="card-title"><h2>Маршрут Газели</h2><button class="btn ${fresh ? 'ghost' : 'primary'} sm" data-route>${ICON.route} ${fresh ? 'Перестроить' : 'Построить маршрут'}</button></div>
+  <p class="small muted">Раз в неделю из хаба по боксам в ЦОН и вузах, по школам, где в коробе есть вещи, и по «биркам у бака» с мелкой техникой. Путь — по улицам Актобе, порядок точек подбирается так, чтобы ехать меньше.</p>
+  <div class="dash mt-12">
+    <div class="span-7"><div class="map-card" style="height:340px"><div class="map-slot" data-map></div></div></div>
+    <div class="span-5">
+      ${fresh ? `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">
+          <div class="kpi"><div class="v" data-testid="route-km">${fmtKm(fresh.res.meters)}</div><div class="l">путь с возвратом в хаб</div></div>
+          <div class="kpi"><div class="v">${fmtMin(fresh.res.seconds)}</div><div class="l">за рулём, без погрузки</div></div>
+        </div>
+        <div class="list mt-8" data-testid="route-stops">
+          <div class="li"><div class="ico num-ico">0</div><div class="grow"><b>${esc(HUB.name)}</b><div class="xs muted">${esc(HUB.address)} · старт</div></div></div>
+          ${fresh.res.order.map((i, n) => { const s = fresh.stops[i]; return `<div class="li"><div class="ico num-ico">${n + 1}</div><div class="grow"><b>${esc(s.name)}</b><div class="xs muted">${esc(s.address || '')}${s.items ? ` · вещей: ${s.items}` : ''}</div></div></div>`; }).join('')}
+        </div>`
+      : `<div class="empty">${stops.length} точек: ${BOXES.length} боксов${items ? `, вещей в коробах и у баков: ${items}` : ''}. Нажмите «Построить маршрут».</div>`}
+    </div>
+  </div>`;
+}
+
+function attachRouteMap(el) {
+  const slot = el.querySelector('[aria-label="Маршрут сбора"] [data-map]');
+  if (!slot) return;
+  const st = getState();
+  const stops = routeStops(st);
+  const fresh = trip && trip.sig === sigOf(stops) ? trip : null;
+  const m = mountMap(slot, 'hub-route', { zoom: 12 });
+  const pins = [{ ...HUB, id: 'hub' }, ...stops.map((s) => ({ ...s, count: fresh ? fresh.res.order.indexOf(stops.indexOf(s)) + 1 : s.items || 0 }))];
+  setPins(m, 'stops', pins);
+  setLine(m, 'route', fresh?.res.latlngs, { color: '#5e5ce6' });
+  if (ui.routeFit !== (fresh ? fresh.sig : 'none')) { ui.routeFit = fresh ? fresh.sig : 'none'; fitTo(m, [HUB, ...stops], { maxZoom: 14, padding: 24 }); }
+}
+
+function buildRoute(el) {
+  const stops = routeStops(getState());
+  const res = tour(HUB, stops);
+  if (!res) return toast('Не удалось построить маршрут');
+  trip = { sig: sigOf(stops), stops, res };
+  render(el, getState());
+  toast(`Маршрут: ${stops.length} точек, ${fmtKm(res.meters)}`);
 }
 
 // ── «Спроси устройство» ─────────────────────────────────────────────────────
@@ -318,6 +433,21 @@ function startRun(el, itemId) {
 }
 
 function bind(el, sel) {
+  const form = el.querySelector('#orderForm');
+  if (form) {
+    form.onchange = (e) => {
+      if (e.target.id === 'oModel') { ui.order.model = e.target.value; ui.order.part = 0; render(el, getState()); }
+      if (e.target.id === 'oPart') ui.order.part = +e.target.value;
+    };
+    form.oninput = (e) => { if (e.target.id === 'oShop') ui.order.shop = e.target.value; };
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const ex = partModels.find((x) => x.id === ui.order.model);
+      const part = ex.parts[ui.order.part];
+      const o = addWorkshopOrder({ shop: ui.order.shop.trim(), model: ex.model, part: part.name });
+      toast(`Заявка №${o.no}: ${part.name.toLowerCase()} · ${ex.model}`);
+    };
+  }
   el.onclick = (e) => {
     const b = e.target.closest('button');
     if (!b) return;
@@ -331,6 +461,8 @@ function bind(el, sel) {
       return toast(fromResident ? `Бирка «${TAGS[tag].label}»: бонусы жителю начислены` : `Бирка «${TAGS[tag].label}» подтверждена`);
     }
     if (b.dataset.ask) return openAsk(b.dataset.ask);
+    if ('route' in b.dataset) return buildRoute(el);
+    if (b.dataset.cancelOrder) { cancelWorkshopOrder(b.dataset.cancelOrder); return toast('Заявка отменена'); }
     if ('run' in b.dataset) return startRun(el, b.dataset.run);
     if (b.dataset.sell) {
       const r = sellPart(b.dataset.sell);
