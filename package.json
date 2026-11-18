@@ -1,0 +1,19 @@
+{
+  "name": "unknown-app",
+  "version": "1.0.0",
+  "description": "Прототип: житель, кошелёк, магазин, ОСИ, хаб, акимат (кейс STEM «Электронные отходы»)",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node tests/e2e.mjs",
+    "check-data": "node tests/check-data.mjs"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@fontsource/inter": "^5.1.0",
+    "chart.js": "^4.4.6",
+    "esbuild": "^0.24.0",
+    "qrcode-generator": "^1.4.4"
+  },
+  "private": true,
+  "type": "module"
+}
