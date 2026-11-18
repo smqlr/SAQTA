@@ -257,7 +257,9 @@ html, body { -webkit-tap-highlight-color: transparent; }
 .art .a-crack { fill: none; stroke: #f2f5f3; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
 .art .a-ok { fill: none; stroke: var(--tag-whole); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .art .a-swell { fill: none; stroke: var(--tag-danger); stroke-width: 2.5; stroke-dasharray: 4 4; }
-.art .a-thin { fill: none; stroke: var(--art-stroke); stroke-width: 2; stroke-linecap: round; opacity: .65; }
+.art .a-drop { fill: var(--tag-donor); }
+.art .a-low { fill: var(--tag-danger); }
+.art .a-led { fill: var(--tag-whole); }
 .art .a-warn { fill: #f0b247; stroke: var(--art-stroke); stroke-width: 1.5; stroke-linejoin: round; }
 
 .mini-ico { width: 36px; height: 36px; border-radius: 12px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; flex: none; }

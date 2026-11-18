@@ -281,7 +281,7 @@ export const EXAMPLES = [
   ...[
     ['pc', 'digital', 'Системный блок', 'не включается', 'laptop', 'donor', 'pc'],
     ['fridge', 'home', 'Холодильник', 'не морозит', 'big', 'raw', 'fridge'],
-    ['washer', 'home', 'Стиральная машина', 'течёт', 'big', 'raw', 'washer'],
+    ['washer', 'home', 'Стиральная машина', 'течёт', 'big', 'raw', 'washerLeak'],
     ['iron', 'home', 'Утюг', 'не включается', 'small', 'raw', 'iron'],
     ['vacuum', 'home', 'Пылесос', 'слабо тянет', 'small', 'raw', 'vacuum'],
     ['tv', 'screens', 'Телевизор', 'полосы на экране', 'screen', 'donor', 'tv'],
