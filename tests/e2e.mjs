@@ -282,6 +282,47 @@ for (let i = 0; i < 11; i++) {
 }
 ok(limitHit === 10, `11-я сдача в месяце отклонена (на попытке ${limitHit === false ? '—' : limitHit + 1})`);
 
+console.log('9б. Заявки мастерских: разборка под заказ');
+await reset('clean');
+await go('hub');
+await page.click('.qi:has-text("D-000781")');
+await page.waitForTimeout(150);
+const evRow = async (name) => (await page.textContent(`#view table tbody tr:has-text("${name}")`)).replace(/[\u00a0\u202f]/g, ' ');
+ok((await evRow('Камера')).includes('−36 ₸') && (await evRow('Камера')).includes('оставляем'), 'камера A50 без заявки: −36 ₸, оставляем');
+await page.selectOption('#oModel', 'a50');
+await page.selectOption('#oPart', '1');
+await page.click('#orderForm button[type="submit"]');
+await page.waitForTimeout(150);
+ok((await evRow('Камера')).includes('+468 ₸') && (await evRow('Камера')).includes('снимаем'), 'заявка мастерской: EV камеры +468 ₸ (0,8 × 900 × 0,9 − 3 × 60), снимаем');
+ok((await page.textContent('[data-testid="orders"]')).includes('Камера'), 'заявка в списке мастерских');
+
+await go('resident');
+await page.click('[data-cat="digital"]');
+await page.click('[data-example="a50"]');
+await page.click('[data-go="method"]');
+await page.click('[data-submit]');
+const a50No = (await page.textContent('.receipt h2')).trim();
+await page.click('[data-to-hub]');
+await page.waitForTimeout(250);
+await page.click('[data-confirm]');
+await page.waitForTimeout(200);
+await go('hub');
+const bank = await page.textContent('[aria-label="Банк деталей"]');
+ok(bank.includes(`Из устройства № ${a50No}`) && /Камера · Samsung Galaxy A50[\s\S]*заявка №4/.test(bank), 'камера снята под заявку №4 и лежит в банке с QR-паспортом');
+const camCard = page.locator('.passport', { hasText: `Камера · Samsung Galaxy A50` }).filter({ hasText: a50No });
+await camCard.locator('[data-sell]').click();
+await page.waitForTimeout(200);
+ok((await page.textContent('[data-testid="orders"]')).includes('выдана мастерской'), 'деталь выдана мастерской, заявка закрыта');
+ok((await balance()) === 50 + 90, `кошелёк донора: +50 за телефон и роялти +90 (10% от 900 ₸) = ${await balance()}`);
+
+console.log('9в. Сертификат: данные удалены');
+await go('wallet');
+ok(await page.isVisible('[data-cert]'), 'в кошельке есть сертификат');
+await page.click('[data-cert]');
+const cert = await page.textContent('.sheet');
+ok(cert.includes(`WD-${a50No.slice(2)}`) && cert.includes('NIST SP 800-88') && cert.includes('Данные удалены'), `сертификат WD-${a50No.slice(2)}: стирание по NIST SP 800-88`);
+await page.click('.sheet [data-close]');
+
 console.log('10. Офлайн и ошибки');
 ok(external.length === 0, `внешних запросов нет (${external.length})`);
 ok(errors.length === 0, `ошибок в консоли нет${errors.length ? ': ' + errors.join(' | ') : ''}`);

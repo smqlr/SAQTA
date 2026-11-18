@@ -4,6 +4,7 @@ import { getState, withdraw, markNotesRead } from '../store.js';
 import { ICON } from '../lib/icons.js';
 import { num, esc, dateTime, signed } from '../lib/format.js';
 import { sheet, toast } from '../lib/ui.js';
+import { qrSvg } from '../lib/qr.js';
 
 let highlight = new Set();
 export function home() { highlight = new Set(); }
@@ -42,6 +43,11 @@ export function render(el, st) {
     ${st.notes.length > 1 ? `<div class="section-label mt-24">Уведомления</div>
       <div class="card"><div class="list">${[...st.notes].reverse().slice(1).map((n) => `<div class="li"><div class="ico ${n.kind === 'royalty' ? 'red' : 'blue'}">${n.kind === 'royalty' ? ICON.heart : ICON.bell}</div><div class="grow small"><b>${esc(n.title)}</b><div class="muted">${esc(n.body)}</div><div class="xs faint">${dateTime(n.ts)}</div></div></div>`).join('')}</div></div>` : ''}
 
+    ${st.certs.length ? `<div class="section-label mt-24">Сертификаты: данные удалены</div>
+      <div class="card"><div class="list">${[...st.certs].reverse().map((c) => `<button class="li li-btn" data-cert="${c.id}">
+        <div class="ico blue">${ICON.shield}</div>
+        <div class="grow"><b>${esc(c.model)}</b><div class="xs muted">${c.no} · ${dateTime(c.ts)}</div></div>${ICON.chevron}</button>`).join('')}</div></div>` : ''}
+
     <div class="section-label mt-24">Как начисляем</div>
     <div class="card"><div class="kv">
       <div><span>Телефон или планшет</span><b>${BONUS.phone}</b></div>
@@ -58,6 +64,8 @@ export function render(el, st) {
   if (unread.length) setTimeout(markNotesRead, 0);
 
   el.onclick = (e) => {
+    const c = e.target.closest('[data-cert]');
+    if (c) return openCert(c.dataset.cert);
     const b = e.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'withdraw') {
@@ -75,6 +83,29 @@ function txRow(t) {
     <div class="grow"><b>${esc(t.title)}</b><div class="xs muted">${esc(t.sub)} · ${dateTime(t.ts)}</div>
     ${t.status !== 'Зачислено' ? `<div class="xs" style="color:var(--warn);font-weight:600">${esc(t.status)}</div>` : ''}</div>
     <div class="amt ${t.amount > 0 ? 'pos' : ''}">${signed(t.amount)}</div></div>`;
+}
+
+// Сертификат стирания данных: что сделали с носителем, когда и кто
+export function openCert(id) {
+  const c = getState().certs.find((x) => x.id === id);
+  if (!c) return;
+  const destroyed = /Destroy/.test(c.method);
+  sheet('Сертификат', (body) => {
+    body.innerHTML = `<div class="card receipt">
+      <div class="done-line">${ICON.shield}${destroyed ? 'Носитель уничтожен' : 'Данные удалены'}</div>
+      ${qrSvg(`${APP_NAME}:wipe:${c.no}`, { label: `QR сертификата ${c.no}` })}
+      <div><div class="xs muted">Сертификат ${APP_NAME}</div><h2 class="num">${c.no}</h2></div>
+      <div class="kv">
+        <div><span>Устройство</span><b>${esc(c.model)}</b></div>
+        <div><span>Номер в хабе</span><b>${c.deviceNo}</b></div>
+        <div><span>Способ</span><b>${esc(c.method)}</b></div>
+        <div><span>Дата</span><b>${dateTime(c.ts)}</b></div>
+        <div><span>Выдал</span><b>${esc(c.by)}</b></div>
+      </div>
+      <p class="small muted" style="text-align:left">${destroyed ? 'Накопитель физически уничтожен: восстановить с него данные невозможно.' : 'Все данные стёрты без возможности восстановления, результат проверен. Устройство или его детали можно передавать дальше.'}</p>
+      <button class="btn primary block" data-close>Готово</button>
+    </div>`;
+  });
 }
 
 function openPartners(kind) {

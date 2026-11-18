@@ -11,6 +11,7 @@ import { ICON } from '../lib/icons.js';
 import { qrSvg } from '../lib/qr.js';
 import { num, tenge, esc, dateTime } from '../lib/format.js';
 import { tagChip, demoMark, toast } from '../lib/ui.js';
+import { openCert } from './wallet.js';
 
 // Локальное состояние потока (не сохраняется: это шаги одного действия)
 let cat = CATEGORIES[0].id; // выбранная подтема — переживает возврат на старт
@@ -112,6 +113,7 @@ function myDonations(st) {
           <div class="xs muted">${d.type === 'big' && d.address ? `${esc(d.address)} · ${esc(d.slot || '')}` : `${d.point ? `${esc(d.point)} · ` : ''}${dateTime(d.ts)}`}</div>
           <span class="status-pill ${kind} mt-8">${label}</span>
           ${d.status === 'awaiting-pickup' ? `<div><button class="btn sm ghost mt-8" data-pickup="${d.id}">${ICON.truck} Скупка забрала</button></div>` : ''}
+          ${d.certId ? `<div><button class="btn sm plain mt-8" data-cert="${d.certId}">${ICON.shield} Сертификат: данные удалены</button></div>` : ''}
         </div>
         <div class="amt ${['checked', 'sold', 'picked'].includes(d.status) ? 'pos' : 'faint'}">${d.bonus ? `+${num(d.bonus)}` : '0'}</div>
       </div>`;
@@ -416,6 +418,7 @@ function bind(el) {
       el.querySelector('[data-map]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       return;
     }
+    if (t.dataset.cert) return openCert(t.dataset.cert);
     if (t.dataset.pickup) {
       residentPickupDone(t.dataset.pickup);
       toast('Технику забрали, бонусы начислены');

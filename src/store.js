@@ -9,13 +9,18 @@ import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
 import { DAY, pad, num } from './lib/format.js';
 
-const KEY = 'qaita-v3';
-const VERSION = 3; // 2: точки сдачи на карте Актобе; 3: адреса вывоза, доставки и дома ОСИ
+const KEY = 'qaita-v4';
+const VERSION = 4; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных
 const listeners = new Set();
 let state;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const now = () => Date.now();
+// Способы очистки носителей для сертификата донору
+const WIPE = {
+  purge: 'Стирание по NIST SP 800-88 (Purge) с проверкой',
+  destroy: 'Физическое уничтожение носителя по NIST SP 800-88 (Destroy)',
+};
 
 function read() {
   try {
@@ -59,8 +64,19 @@ function seedBank(t) {
       id: uid(), passportNo: SAMPLE_PASSPORT.no, part: SAMPLE_PASSPORT.part, model: SAMPLE_PASSPORT.model,
       fromDevice: SAMPLE_PASSPORT.fromDevice, check: SAMPLE_PASSPORT.check, price: SAMPLE_PASSPORT.price,
       createdTs: t - 12 * DAY, // демо: деталь лежит 12 дней
-      sold: false, donationId: null, groupId: null, demo: true, hasOrder: true,
+      sold: false, donationId: null, groupId: null, demo: true, hasOrder: true, orderId: 'w1',
     },
+  ];
+}
+
+// Заявки мастерских (док: «Мастерская оставляет в приложении заявку на деталь, например „экран Samsung A50“»).
+// Экран A50 уже снят под первую заявку (образец QR-паспорта), на память Lenovo заявка есть (док: «Сценарий демо»).
+function seedOrders(t) {
+  const o = (id, no, model, part, status, extra = {}) => ({ id, no, shop: 'Мастерская-партнёр', model, part, status, ts: t - (10 - no) * DAY, ...extra }); // демо: название и даты заявок
+  return [
+    o('w1', 1, SAMPLE_PASSPORT.model, SAMPLE_PASSPORT.part, 'reserved', { deviceNo: SAMPLE_PASSPORT.fromDevice, partNo: SAMPLE_PASSPORT.no }),
+    o('w2', 2, 'Lenovo IdeaPad', 'Оперативная память', 'open'),
+    o('w3', 3, SAMPLE_PASSPORT.model, SAMPLE_PASSPORT.part, 'open'),
   ];
 }
 
@@ -78,14 +94,18 @@ export function initialState(preset = 'ready') {
     bank: seedBank(t),
     akimat: { kg: { reverse: 0, osi: 0, amnesty: 0, requests: 0, hub: 0 }, events: [] },
     shop: { orders: [], crewEarned: 0 },
+    workshop: { orders: seedOrders(t), seq: 4 },
+    certs: [],
     osi: { balance: 0, tags: [], home: null },
     test30Runs: 0,
   };
   if (preset === 'ready') {
     // Решение команды 18.11: в демо-кошельке «сдача ноутбука +200» и «роялти +1 120» (итого 1 320)
     const school = LEAGUE[0]; // демо: школа из Донор-лиги для сдачи из примера
-    const d = { id: uid(), ts: t - 3 * DAY, deviceNo: 'D-000780', model: 'Lenovo IdeaPad', type: 'laptop', state: 'разбит корпус', tag: 'donor', method: 'school', pointId: school.id, point: school.name, address: school.address || '', exampleId: 'lenovo', status: 'sold', bonus: DEMO_WALLET.laptopBonus };
+    const cert = { id: uid(), no: 'WD-000780', deviceNo: 'D-000780', model: 'Lenovo IdeaPad', ts: t - 3 * DAY + 3600000, method: WIPE.purge, by: 'Хаб QAITA' };
+    const d = { id: uid(), ts: t - 3 * DAY, deviceNo: 'D-000780', model: 'Lenovo IdeaPad', type: 'laptop', state: 'разбит корпус', tag: 'donor', method: 'school', pointId: school.id, point: school.name, address: school.address || '', lat: school.lat, lon: school.lon, exampleId: 'lenovo', status: 'sold', bonus: DEMO_WALLET.laptopBonus, certId: cert.id };
     s.donations.push(d);
+    s.certs.push(cert);
     s.wallet.tx.push(
       { id: uid(), ts: t - 3 * DAY + 3600000, kind: 'accrual', title: 'Сдача ноутбука', sub: 'Lenovo IdeaPad · D-000780', amount: DEMO_WALLET.laptopBonus, status: 'Зачислено' },
       { id: uid(), ts: t - DAY, kind: 'royalty', title: 'Роялти', sub: 'Детали Lenovo IdeaPad проданы', amount: DEMO_WALLET.laptopRoyalty, status: 'Зачислено' },
@@ -211,6 +231,39 @@ export function selectHubItem(id) {
   commit({ type: 'select' });
 }
 
+// ── Мастерские ──────────────────────────────────────────────────────────────
+const orderMatch = (o, model, part) => o.model === model && o.part === part;
+// Есть ли заявка на деталь: свободная или уже закреплённая за этим устройством.
+// Без заявки — false, а если в документации нет данных о спросе (null) и заявок нет — null.
+export function hasOrderFor(p, model, deviceNo = null) {
+  const any = state.workshop.orders.some((o) => orderMatch(o, model, p.name) && (o.status === 'open' || (deviceNo && o.deviceNo === deviceNo)));
+  if (any) return true;
+  return p.hasOrder === null ? null : false;
+}
+export function addWorkshopOrder({ shop, model, part }) {
+  const o = { id: uid(), no: state.workshop.seq++, shop: shop || 'Мастерская-партнёр', model, part, status: 'open', ts: now() };
+  state.workshop.orders.push(o);
+  commit({ type: 'workshop-order', order: o });
+  return o;
+}
+export function cancelWorkshopOrder(id) {
+  const o = state.workshop.orders.find((x) => x.id === id);
+  if (!o || o.status !== 'open') return;
+  o.status = 'cancelled';
+  commit({ type: 'workshop-cancel', order: o });
+}
+
+// ── Сертификат стирания данных (док: «Стирание или физическое уничтожение носителя, сертификат донору в приложении») ──
+function issueCert(d, tag) {
+  const c = {
+    id: uid(), no: `WD-${d.deviceNo.slice(2)}`, deviceNo: d.deviceNo, model: d.model, ts: now(),
+    method: tag === 'whole' || tag === 'donor' ? WIPE.purge : WIPE.destroy, by: 'Хаб QAITA',
+  };
+  state.certs.push(c);
+  d.certId = c.id;
+  return c;
+}
+
 export function triage(itemId, tag) {
   const item = state.hub.queue.find((x) => x.id === itemId);
   if (!item || item.status === 'triaged') return;
@@ -222,13 +275,17 @@ export function triage(itemId, tag) {
   if (tag === 'donor' && ex && ex.parts.length) {
     const groupId = ex.royalty ? uid() : null;
     for (const p of ex.parts) {
-      const ev = expectedValue(p);
-      const take = ev == null ? true : ev > 0; // для Lenovo цены уточняются — снимаем по заявке из сценария демо
+      const hasOrder = hasOrderFor(p, ex.model);
+      const ev = expectedValue({ ...p, hasOrder });
+      const take = ev == null ? true : ev > 0; // для Lenovo цен нет в документации — снимаем по сценарию демо
       if (!take) continue;
+      const order = state.workshop.orders.find((o) => o.status === 'open' && orderMatch(o, ex.model, p.name));
+      const passportNo = nextPart();
+      if (order) Object.assign(order, { status: 'reserved', deviceNo: item.deviceNo, partNo: passportNo });
       state.bank.unshift({
-        id: uid(), passportNo: nextPart(), part: p.name, model: ex.model, fromDevice: item.deviceNo,
+        id: uid(), passportNo, part: p.name, model: ex.model, fromDevice: item.deviceNo,
         check: p.price == null ? 'проверка ТЕСТ-30 / стенд' : 'проверена', price: p.price, createdTs: now(),
-        sold: false, donationId: item.donationId, groupId, goesTo: p.goesTo || null, hasOrder: p.hasOrder, demo: false,
+        sold: false, donationId: item.donationId, groupId, goesTo: p.goesTo || null, hasOrder: !!order || hasOrder, orderId: order?.id || null, demo: false,
       });
     }
   }
@@ -238,9 +295,10 @@ export function triage(itemId, tag) {
       d.status = 'checked';
       d.tag = tag;
       credit(d.bonus, 'accrual', `Сдача: ${DEVICE_TYPES[d.type].label.toLowerCase().split(',')[0]}`, `${d.model} · ${d.deviceNo}`);
+      const cert = ['phone', 'laptop'].includes(d.type) ? issueCert(d, tag) : null;
       note(
         'Устройство проверено в хабе',
-        `${d.model} (${d.deviceNo}) получил бирку и прошёл проверку.${d.bonus ? ` +${num(d.bonus)} бонусов.` : ' За зарядки и кабели бонусов нет.'}${['phone', 'laptop'].includes(d.type) ? ' Данные стёрты, сертификат — в истории.' : ''}`,
+        `${d.model} (${d.deviceNo}) получил бирку и прошёл проверку.${d.bonus ? ` +${num(d.bonus)} бонусов.` : ' За зарядки и кабели бонусов нет.'}${cert ? ` Данные стёрты: сертификат ${cert.no} в кошельке.` : ''}`,
         'bonus',
       );
     }
@@ -268,7 +326,12 @@ export function sellPart(partId) {
   const part = state.bank.find((x) => x.id === partId);
   if (!part || part.sold) return null;
   const group = part.groupId ? state.bank.filter((x) => x.groupId === part.groupId) : [part];
-  group.forEach((p) => { p.sold = true; p.soldTs = now(); });
+  group.forEach((p) => {
+    p.sold = true;
+    p.soldTs = now();
+    const o = p.orderId && state.workshop.orders.find((x) => x.id === p.orderId);
+    if (o) { o.status = 'done'; o.doneTs = now(); } // деталь выдана мастерской с QR-паспортом и гарантией
+  });
   const ex = EXAMPLES.find((e) => e.model === part.model);
   let royalty = null;
   let toDonor = null;

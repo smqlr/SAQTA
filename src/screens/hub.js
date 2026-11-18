@@ -1,6 +1,6 @@
 // Экран «Хаб»: очередь с бирками, расчёт EV, «Спроси устройство», ТЕСТ-30, банк деталей с QR-паспортом.
 import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS } from '../data.js';
-import { getState, selectHubItem, triage, askDevice, runCells, sellPart } from '../store.js';
+import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder } from '../store.js';
 import { expectedValue, decision, evExplain, pSell } from '../lib/ev.js';
 import { parseBatteryReport, stateOfHealth } from '../lib/battery-report.js';
 import { ART } from '../lib/art.js';
@@ -46,6 +46,7 @@ export function render(el, st) {
     </section>
     <section class="card span-8" aria-label="Устройство">${sel ? detail(sel) : '<div class="empty">Очередь пуста</div>'}</section>
     <section class="card span-12" id="test30" aria-label="ТЕСТ-30">${test30Card(sel)}</section>
+    <section class="card span-12" aria-label="Заявки мастерских">${ordersCard(st)}</section>
     <section class="card span-12" aria-label="Банк деталей">${bankCard(st)}</section>
     <section class="card span-12" aria-label="Маршрут сбора">${routeCard(st)}</section>
   </div>`;
@@ -90,18 +91,19 @@ function detail(it) {
   ${it.donationId ? `<p class="xs muted mt-8">После подтверждения житель получит бонусы в кошелёк.</p>` : ''}`
   : `<p class="small mt-12"><b>${TAGS[it.tag].label}:</b> <span class="muted">${TAGS[it.tag].hint}</span></p>`}
 
-  ${ex?.parts?.length ? evTable(ex) : ''}
+  ${ex?.parts?.length ? evTable(ex, it) : ''}
   ${it.type === 'laptop' ? askBlock(it) : ''}`;
 }
 
-function evTable(ex) {
+function evTable(ex, it) {
+  const parts = ex.parts.map((p) => ({ ...p, hasOrder: hasOrderFor(p, ex.model, it.deviceNo) }));
   return `
   <div class="section-label mt-16">Ожидаемая ценность деталей (EV)</div>
   <div class="formula">EV = P(работает) × цена × P(купят за ${EV.sellDays} дней) − t<sub>мин</sub> × ${EV.tengePerMinute}</div>
   <p class="xs muted mt-8">P(купят) = ${String(EV.pSellWithOrder).replace('.', ',')}, если на деталь есть заявка мастерской, и ${String(EV.pSellNoOrder).replace('.', ',')}, если нет. Деталь снимаем, только если EV больше нуля.</p>
   <div class="table-wrap mt-8"><table>
     <thead><tr><th>Деталь</th><th class="r">P(работает)</th><th class="r">Цена</th><th>Заявка</th><th class="r">P(купят)</th><th class="r">t, мин</th><th class="r">EV</th><th>Решение</th></tr></thead>
-    <tbody>${ex.parts.map((p) => {
+    <tbody>${parts.map((p) => {
       const ev = expectedValue(p);
       const dcs = decision(ev);
       const ps = pSell(p);
@@ -221,6 +223,12 @@ function shelf(p) {
   <div class="progress" style="height:6px"><i style="width:${Math.min(100, (days / PARTS.unsoldDays) * 100)}%"></i></div>`;
 }
 
+function orderLine(p) {
+  const o = p.orderId && getState().workshop.orders.find((x) => x.id === p.orderId);
+  if (o) return `<span class="xs" style="color:var(--brand);font-weight:600">заявка №${o.no} · ${esc(o.shop)}</span>`;
+  return p.hasOrder ? '<span class="xs" style="color:var(--brand);font-weight:600">есть заявка мастерской</span>' : '';
+}
+
 function passport(p) {
   const royalty = p.price != null ? Math.round(p.price * BONUS.royaltyShare) : null;
   return `<div class="passport">
@@ -231,8 +239,8 @@ function passport(p) {
       <span>Из устройства № ${p.fromDevice}, данные стёрты</span>
       <span>Проверка: ${esc(p.check)}</span>
       <span>Гарантия ${PARTS.warrantyDays} дней${p.price == null ? '' : ` · цена ${tenge(p.price)}`}</span>
-      ${p.hasOrder ? '<span class="xs" style="color:var(--brand);font-weight:600">есть заявка мастерской</span>' : ''}
-      ${p.sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано${royalty ? ` · роялти донору +${num(royalty)}` : ''}</span>` : `${shelf(p)}<button class="btn sm ghost mt-8" style="justify-self:start" data-sell="${p.id}">Отметить продажу</button>`}
+      ${orderLine(p)}
+      ${p.sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">${p.orderId ? 'выдана мастерской' : 'продано'}${royalty ? ` · роялти донору +${num(royalty)}` : ''}</span>` : `${shelf(p)}<button class="btn sm ${p.orderId ? 'primary' : 'ghost'} mt-8" style="justify-self:start" data-sell="${p.id}">${p.orderId ? 'Выдать мастерской' : 'Отметить продажу'}</button>`}
     </div></div>`;
 }
 
@@ -249,6 +257,41 @@ function groupCard(g) {
       <span>Гарантия ${PARTS.warrantyDays} дней на каждую деталь</span>
       ${sold ? `<span class="tag whole" style="margin-top:6px;justify-self:start">продано · роялти донору +${num(ex?.royalty)}</span>` : `${shelf(first)}<button class="btn sm primary mt-8" style="justify-self:start" data-sell="${first.id}">Детали проданы</button>`}
     </div></div>`;
+}
+
+// ── Заявки мастерских ───────────────────────────────────────────────────────
+// Разборка под заказ: заявка мастерской поднимает P(купят) с 0,2 до 0,9, и EV детали пересчитывается
+const ORDER_STATUS = {
+  open: ['ждёт деталь', ''],
+  reserved: ['деталь снята и проверена', 'ok'],
+  done: ['выдана мастерской', 'ok'],
+  cancelled: ['отменена', ''],
+};
+const partModels = EXAMPLES.filter((e) => e.parts.length);
+function ordersCard(st) {
+  const f = ui.order || (ui.order = { model: partModels[0].id, part: 0, shop: 'Мастерская-партнёр' });
+  const ex = partModels.find((e) => e.id === f.model);
+  const list = [...st.workshop.orders].reverse();
+  return `
+  <div class="card-title"><h2>Заявки мастерских</h2><span class="xs muted">деталь снимаем, только когда её ждут</span></div>
+  <div class="dash">
+    <div class="span-7"><div class="list" data-testid="orders">${list.map((o) => {
+      const [label, kind] = ORDER_STATUS[o.status];
+      return `<div class="li"><div class="ico ${o.status === 'open' ? 'orange' : o.status === 'cancelled' ? 'gray' : ''}">${ICON.wrench}</div>
+        <div class="grow"><b>№${o.no} · ${esc(o.part)}</b> <span class="small">· ${esc(o.model)}</span>
+          <div class="xs muted">${esc(o.shop)} · ${dateTime(o.ts)}${o.partNo ? ` · деталь ${o.partNo}` : ''}</div>
+          <span class="status-pill ${kind} mt-8">${label}</span></div>
+        ${o.status === 'open' ? `<button class="btn sm plain" data-cancel-order="${o.id}">Отменить</button>` : ''}</div>`;
+    }).join('')}</div></div>
+    <form class="span-5 card flat stack" id="orderForm" style="align-self:start">
+      <b>Новая заявка</b>
+      <div class="field"><label for="oModel">Модель</label><select class="input" id="oModel">${partModels.map((e) => `<option value="${e.id}" ${e.id === f.model ? 'selected' : ''}>${esc(e.model)}</option>`).join('')}</select></div>
+      <div class="field"><label for="oPart">Деталь</label><select class="input" id="oPart">${ex.parts.map((p, i) => `<option value="${i}" ${i === f.part ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="field"><label for="oShop">Мастерская</label><input class="input" id="oShop" maxlength="40" value="${esc(f.shop)}"></div>
+      <button class="btn primary block" type="submit">${ICON.plus} Добавить заявку</button>
+      <p class="xs muted">EV детали в карточке устройства пересчитается сразу: P(купят) станет ${String(EV.pSellWithOrder).replace('.', ',')} вместо ${String(EV.pSellNoOrder).replace('.', ',')}.</p>
+    </form>
+  </div>`;
 }
 
 // ── Маршрут Газели ──────────────────────────────────────────────────────────
@@ -390,6 +433,21 @@ function startRun(el, itemId) {
 }
 
 function bind(el, sel) {
+  const form = el.querySelector('#orderForm');
+  if (form) {
+    form.onchange = (e) => {
+      if (e.target.id === 'oModel') { ui.order.model = e.target.value; ui.order.part = 0; render(el, getState()); }
+      if (e.target.id === 'oPart') ui.order.part = +e.target.value;
+    };
+    form.oninput = (e) => { if (e.target.id === 'oShop') ui.order.shop = e.target.value; };
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const ex = partModels.find((x) => x.id === ui.order.model);
+      const part = ex.parts[ui.order.part];
+      const o = addWorkshopOrder({ shop: ui.order.shop.trim(), model: ex.model, part: part.name });
+      toast(`Заявка №${o.no}: ${part.name.toLowerCase()} · ${ex.model}`);
+    };
+  }
   el.onclick = (e) => {
     const b = e.target.closest('button');
     if (!b) return;
@@ -404,6 +462,7 @@ function bind(el, sel) {
     }
     if (b.dataset.ask) return openAsk(b.dataset.ask);
     if ('route' in b.dataset) return buildRoute(el);
+    if (b.dataset.cancelOrder) { cancelWorkshopOrder(b.dataset.cancelOrder); return toast('Заявка отменена'); }
     if ('run' in b.dataset) return startRun(el, b.dataset.run);
     if (b.dataset.sell) {
       const r = sellPart(b.dataset.sell);
