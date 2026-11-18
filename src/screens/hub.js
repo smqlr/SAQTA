@@ -9,8 +9,12 @@ import { qrSvg } from '../lib/qr.js';
 import { num, esc, tenge, DAY, dateTime } from '../lib/format.js';
 import { tagChip, simMark, realMark, sheet, toast } from '../lib/ui.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
+import { HUB, BOXES, pointById } from '../geo/points.js';
+import { tour, fmtKm, fmtMin } from '../lib/map/route.js';
+import { mountMap, setPins, setLine, fitTo } from '../lib/map/view.js';
 
 const dash = '<span class="faint">—</span>';
+let trip = null; // последний построенный маршрут Газели: { sig, stops, res }
 let ui = { pick: null, running: false, lastRun: null };
 export function home() { ui = { pick: null, running: false, lastRun: ui.lastRun }; }
 
@@ -43,9 +47,11 @@ export function render(el, st) {
     <section class="card span-8" aria-label="Устройство">${sel ? detail(sel) : '<div class="empty">Очередь пуста</div>'}</section>
     <section class="card span-12" id="test30" aria-label="ТЕСТ-30">${test30Card(sel)}</section>
     <section class="card span-12" aria-label="Банк деталей">${bankCard(st)}</section>
+    <section class="card span-12" aria-label="Маршрут сбора">${routeCard(st)}</section>
   </div>`;
 
   drawTestChart(el);
+  attachRouteMap(el);
   bind(el, sel);
 }
 
@@ -245,6 +251,71 @@ function groupCard(g) {
     </div></div>`;
 }
 
+// ── Маршрут Газели ──────────────────────────────────────────────────────────
+// Раз в неделю: все боксы в ЦОН и вузах, школы с вещами в коробе и мелкая техника с «бирок у бака»
+function routeStops(st) {
+  const stops = BOXES.map((b) => ({ id: b.id, kind: b.kind, name: b.name, address: b.address, lat: b.lat, lon: b.lon, items: 0 }));
+  for (const d of st.donations) {
+    if (d.status !== 'sent' || !d.pointId) continue;
+    let s = stops.find((x) => x.id === d.pointId);
+    if (!s) { const p = pointById(d.pointId); s = { id: p.id, kind: p.kind, name: p.name, address: p.address, lat: p.lat, lon: p.lon, items: 0 }; stops.push(s); }
+    s.items++;
+  }
+  for (const t of st.osi.tags) {
+    if (t.kind !== 'small' || t.status !== 'marked' || t.lat == null) continue;
+    let s = stops.find((x) => x.id === `osi:${t.address}`);
+    if (!s) { s = { id: `osi:${t.address}`, kind: 'osi', name: `Бирка у бака: ${t.address}`, address: t.address, lat: t.lat, lon: t.lon, items: 0 }; stops.push(s); }
+    s.items++;
+  }
+  return stops;
+}
+const sigOf = (stops) => stops.map((s) => `${s.id}:${s.items}`).join('|');
+
+function routeCard(st) {
+  const stops = routeStops(st);
+  const fresh = trip && trip.sig === sigOf(stops) ? trip : null;
+  const items = stops.reduce((a, s) => a + s.items, 0);
+  return `
+  <div class="card-title"><h2>Маршрут Газели</h2><button class="btn ${fresh ? 'ghost' : 'primary'} sm" data-route>${ICON.route} ${fresh ? 'Перестроить' : 'Построить маршрут'}</button></div>
+  <p class="small muted">Раз в неделю из хаба по боксам в ЦОН и вузах, по школам, где в коробе есть вещи, и по «биркам у бака» с мелкой техникой. Путь — по улицам Актобе, порядок точек подбирается так, чтобы ехать меньше.</p>
+  <div class="dash mt-12">
+    <div class="span-7"><div class="map-card" style="height:340px"><div class="map-slot" data-map></div></div></div>
+    <div class="span-5">
+      ${fresh ? `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">
+          <div class="kpi"><div class="v" data-testid="route-km">${fmtKm(fresh.res.meters)}</div><div class="l">путь с возвратом в хаб</div></div>
+          <div class="kpi"><div class="v">${fmtMin(fresh.res.seconds)}</div><div class="l">за рулём, без погрузки</div></div>
+        </div>
+        <div class="list mt-8" data-testid="route-stops">
+          <div class="li"><div class="ico num-ico">0</div><div class="grow"><b>${esc(HUB.name)}</b><div class="xs muted">${esc(HUB.address)} · старт</div></div></div>
+          ${fresh.res.order.map((i, n) => { const s = fresh.stops[i]; return `<div class="li"><div class="ico num-ico">${n + 1}</div><div class="grow"><b>${esc(s.name)}</b><div class="xs muted">${esc(s.address || '')}${s.items ? ` · вещей: ${s.items}` : ''}</div></div></div>`; }).join('')}
+        </div>`
+      : `<div class="empty">${stops.length} точек: ${BOXES.length} боксов${items ? `, вещей в коробах и у баков: ${items}` : ''}. Нажмите «Построить маршрут».</div>`}
+    </div>
+  </div>`;
+}
+
+function attachRouteMap(el) {
+  const slot = el.querySelector('[aria-label="Маршрут сбора"] [data-map]');
+  if (!slot) return;
+  const st = getState();
+  const stops = routeStops(st);
+  const fresh = trip && trip.sig === sigOf(stops) ? trip : null;
+  const m = mountMap(slot, 'hub-route', { zoom: 12 });
+  const pins = [{ ...HUB, id: 'hub' }, ...stops.map((s) => ({ ...s, count: fresh ? fresh.res.order.indexOf(stops.indexOf(s)) + 1 : s.items || 0 }))];
+  setPins(m, 'stops', pins);
+  setLine(m, 'route', fresh?.res.latlngs, { color: '#5e5ce6' });
+  if (ui.routeFit !== (fresh ? fresh.sig : 'none')) { ui.routeFit = fresh ? fresh.sig : 'none'; fitTo(m, [HUB, ...stops], { maxZoom: 14, padding: 24 }); }
+}
+
+function buildRoute(el) {
+  const stops = routeStops(getState());
+  const res = tour(HUB, stops);
+  if (!res) return toast('Не удалось построить маршрут');
+  trip = { sig: sigOf(stops), stops, res };
+  render(el, getState());
+  toast(`Маршрут: ${stops.length} точек, ${fmtKm(res.meters)}`);
+}
+
 // ── «Спроси устройство» ─────────────────────────────────────────────────────
 function openAsk(itemId) {
   sheet('Спроси устройство', (body, close) => {
@@ -332,6 +403,7 @@ function bind(el, sel) {
       return toast(fromResident ? `Бирка «${TAGS[tag].label}»: бонусы жителю начислены` : `Бирка «${TAGS[tag].label}» подтверждена`);
     }
     if (b.dataset.ask) return openAsk(b.dataset.ask);
+    if ('route' in b.dataset) return buildRoute(el);
     if ('run' in b.dataset) return startRun(el, b.dataset.run);
     if (b.dataset.sell) {
       const r = sellPart(b.dataset.sell);

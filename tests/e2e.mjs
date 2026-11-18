@@ -19,6 +19,15 @@ const ok = (cond, msg) => {
   else { failed++; console.log(`  ✗ ${msg}`); }
 };
 const digits = (s) => Number(String(s).replace(/[^\d]/g, ''));
+// Поиск адреса: набрать текст и выбрать первую подсказку
+async function pickAddress(input, text) {
+  await page.fill(input, text);
+  await page.waitForSelector(`${input}-list .sugg-i`);
+  const first = (await page.textContent(`${input}-list .sugg-i`)).trim();
+  await page.click(`${input}-list .sugg-i`);
+  await page.waitForTimeout(150);
+  return first;
+}
 
 // Браузер: Chromium из `npx playwright install chromium`, а если его нет — установленный Google Chrome
 async function launch() {
@@ -155,11 +164,20 @@ await shot('05-withdraw');
 await page.click('.sheet [data-close]');
 ok((await balance()) === 320, 'после вывода баланс 320');
 
-console.log('6. Магазин → экипаж → акимат');
+console.log('6. Магазин → адрес доставки → экипаж с маршрутом → акимат');
 await go('shop');
 ok(await page.isChecked('#pickupOld'), 'галочка «вывезти старую технику» стоит по умолчанию');
 await page.click('[data-order]');
+ok(await page.isVisible('#destErr'), 'без адреса заказ не оформляется');
+const dest = await pickAddress('#dAddr', 'Абилкайыр хана 40');
+ok(dest === 'проспект Абилкайыр Хана, 40', `адрес найден: ${dest}`);
+await page.click('[data-order]');
+ok((await page.textContent('.receipt')).includes(dest), 'адрес в заказе');
 await page.click('button[data-mode="crew"]');
+await page.waitForSelector('[data-testid="crew-route"]');
+const crewKm = parseFloat((await page.textContent('[data-testid="crew-route"]')).replace(',', '.'));
+ok(crewKm > 1 && crewKm < 40, `маршрут экипажа по улицам: ${crewKm} км`);
+ok(await page.$$eval('.qmap path.leaflet-interactive, .qmap svg path', (p) => p.length) > 0, 'линия маршрута на карте');
 await page.click('[data-pick]');
 await go('akimat');
 ok((await page.textContent('[data-testid="tonnes"]')).startsWith('0,05'), 'на счётчике акимата 0,05 т (+50 кг)');
@@ -197,16 +215,56 @@ const boxes = await page.$$eval('.li-btn b', (els) => els.map((e) => e.textConte
 ok(boxes.length === 5 && boxes.some((b) => b.includes('обслуживания населения')) && boxes.some((b) => b.includes('университет')), `боксы: ${boxes.length} (ЦОН и вузы)`);
 await page.click('[data-go="start"]');
 
+console.log('6д. Вывоз холодильника по адресу');
+await go('resident');
+await page.click('[data-cat="home"]');
+await page.click('[data-example="fridge"]');
+await page.click('[data-go="method"]');
+await page.click('[data-submit]');
+ok(await page.isVisible('#addrErr'), 'без адреса вывоз не оформляется');
+const pAddr = await pickAddress('#pAddr', 'Тургенева 109');
+ok(pAddr === 'улица Тургенева, 109', `адрес вывоза: ${pAddr}`);
+await page.click('[data-day="2"]');
+await page.click('[data-time="1"]');
+await page.click('[data-submit]');
+const pr = await page.textContent('.receipt');
+ok(pr.includes('Заявка на вывоз создана') && pr.includes(pAddr) && pr.includes('13:00–16:00'), 'квитанция: адрес и время вывоза');
+await page.click('[data-pickup]');
+await page.waitForTimeout(150);
+await go('akimat');
+ok((await page.textContent('[aria-label="Карта сбора"]')).includes('вывоз по заявке · 1'), 'заявка на вывоз на карте акимата');
+
 console.log('7. ОСИ: бирка у бака');
 await go('osi');
+ok(await page.isVisible('#hAddr') && await page.isDisabled('[data-save-home]'), 'сначала ОСИ указывает адрес дома');
+const home = await pickAddress('#hAddr', 'мкр 12');
+await page.click('[data-save-home]');
+ok((await page.textContent('[data-testid="osi-home"]')).trim() === home, `дом ОСИ: ${home}`);
 await page.click('[data-mark]');
+ok((await page.textContent('.receipt')).includes(home), 'в бирке адрес дома');
 ok(/B-\d{4}/.test(await page.textContent('.receipt')), 'бирка с номером и QR');
 await page.click('[data-pickup]');
 ok((await page.textContent('.bank-card')).includes('200'), 'бонусы ОСИ +200 за крупную вещь');
 
+console.log('7б. Маршрут Газели по улицам');
+await page.click('[data-done]');
+await page.click('[data-kind="small"]');
+await page.click('[data-mark]');
+await go('hub');
+await page.click('[data-route]');
+await page.waitForSelector('[data-testid="route-km"]');
+const routeKm = parseFloat((await page.textContent('[data-testid="route-km"]')).replace(',', '.'));
+const stopsN = await page.$$eval('[data-testid="route-stops"] .li', (els) => els.length);
+ok(routeKm > 10 && routeKm < 150, `маршрут Газели: ${routeKm} км`);
+const stopNames = await page.$$eval('[data-testid="route-stops"] .li b', (els) => els.map((e) => e.textContent));
+ok(stopsN === 7 && stopNames.some((n) => n.startsWith('Бирка у бака')), `в маршруте хаб и ${stopsN - 1} точек: 5 боксов и бирка у бака с мелкой техникой`);
+await shot('07-route');
+
 console.log('8. Сохранение и сброс');
+const before = await balance();
+ok(before === 620, `баланс 620: 320 после вывода на карту + 300 за вывоз холодильника (${before})`);
 await page.reload();
-ok((await balance()) === 320, 'после перезагрузки баланс сохранился');
+ok((await balance()) === before, 'после перезагрузки баланс сохранился');
 await reset('ready');
 ok((await balance()) === 1320, 'пресет «готовый кошелёк»: 1 320');
 

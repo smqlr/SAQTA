@@ -111,6 +111,7 @@ export function mountMap(slot, key, opts = {}) {
   addPlaceLabels(map);
   m = { key, el, map, layers: {}, opts, me: null };
   new LocateControl({ onClick: () => locate(m) }).addTo(map);
+  map.on('click', (e) => m.opts.onMapClick?.({ lat: e.latlng.lat, lon: e.latlng.lng }));
   const c = opts.center || g.center;
   map.setView([c.lat, c.lon], opts.zoom || 12);
   maps.set(key, m);

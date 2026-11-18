@@ -444,3 +444,18 @@ tr.total td { font-weight: 600; border-top: .5px solid var(--border); }
 .pick-row[aria-pressed="true"]::after { box-shadow: inset 0 0 0 7px var(--brand); }
 .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
 button.link-row { width: 100%; border: 0; font: inherit; cursor: pointer; }
+
+/* Поле адреса с подсказками */
+.addr { position: relative; }
+.addr-in { position: relative; }
+.addr-in > svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--faint); pointer-events: none; }
+.addr-in .input { padding-left: 38px; }
+.addr-in .input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.sugg { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 1200; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-pop); overflow: hidden; }
+.sugg-i { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; text-align: left; padding: 11px 14px; font-size: 15px; }
+.sugg-i + .sugg-i { border-top: .5px solid var(--separator); }
+.sugg-i:hover, .sugg-i:focus { background: var(--fill-2); }
+.sugg-i svg { width: 17px; height: 17px; color: var(--faint); flex: none; }
+.sugg-empty { padding: 12px 14px; font-size: 14px; color: var(--muted); }
+.xs svg, .small svg { width: 14px; height: 14px; vertical-align: -2px; }
+.li .xs svg { width: 13px; height: 13px; }

@@ -25,6 +25,7 @@ export function render(el, st) {
   const counts = pointCounts();
   const schools = LEAGUE.map((s) => [s, counts[s.id] || 0]).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const viaPoints = Object.values(counts).reduce((a, b) => a + b, 0);
+  const layers = requestLayers(st);
   const maxFund = Math.max(...SCENARIOS.map((s) => s.fund));
 
   const maxT = Math.max(...PILOT.channels.map((x) => x.t));
@@ -68,7 +69,7 @@ export function render(el, st) {
 
     <section class="card span-12" aria-label="Карта сбора">
       <div class="card-title"><h2>Карта сбора</h2>
-        <div class="legend"><span><i class="legend-dot p-school"></i>школы Донор-лиги · ${LEAGUE.length}</span><span><i class="legend-dot p-box"></i>боксы в ЦОН и вузах · ${BOXES.length}</span><span><i class="legend-dot p-hub"></i>хаб</span><span><i class="legend-dot p-danger"></i>полигон ТБО</span></div></div>
+        <div class="legend"><span><i class="legend-dot p-school"></i>школы Донор-лиги · ${LEAGUE.length}</span><span><i class="legend-dot p-box"></i>боксы в ЦОН и вузах · ${BOXES.length}</span><span><i class="legend-dot p-pickup"></i>вывоз по заявке · ${layers.pickups.length}</span><span><i class="legend-dot p-osi"></i>бирки у бака · ${layers.osi.length}</span><span><i class="legend-dot p-store"></i>«Обратный рейс» · ${layers.reverse.length}</span><span><i class="legend-dot p-hub"></i>хаб</span><span><i class="legend-dot p-danger"></i>полигон ТБО</span></div></div>
       <div class="map-card tall"><div class="map-slot" data-map></div></div>
       <p class="xs muted mt-8">Сдано через школы и боксы: ${num(viaPoints)} шт. Цифра у точки — сколько вещей туда сдали. Сейчас техника из баков уходит на полигон ТБО, где мусор горит годами. Адреса: © участники OpenStreetMap, ${geo().date.split('-').reverse().join('.')}.</p>
     </section>
@@ -133,7 +134,7 @@ export function render(el, st) {
     },
   });
 
-  attachMap(el, counts);
+  attachMap(el, counts, layers);
 
   el.onclick = (e) => {
     const b = e.target.closest('[data-sc]');
@@ -141,7 +142,23 @@ export function render(el, st) {
   };
 }
 
-function attachMap(el, counts) {
+// Заявки с адресами: вывоз крупной техники жителям, бирки ОСИ, «Обратный рейс»
+function requestLayers(st) {
+  const pickups = st.donations.filter((d) => d.type === 'big' && d.lat != null)
+    .map((d) => ({ id: d.id, kind: 'pickup', name: `${d.model}: ${d.status === 'picked' ? 'вывезено' : 'ждёт вывоза'}`, address: d.address, lat: d.lat, lon: d.lon }));
+  const homes = new Map();
+  for (const t of st.osi.tags) {
+    if (t.lat == null) continue;
+    const h = homes.get(t.address) || { id: `osi:${t.address}`, kind: 'osi', name: `Бирки у бака`, address: t.address, lat: t.lat, lon: t.lon, count: 0 };
+    h.count++;
+    homes.set(t.address, h);
+  }
+  const reverse = st.shop.orders.filter((o) => o.pickupOld && o.lat != null)
+    .map((o) => ({ id: o.id, kind: 'reverse', name: `«Обратный рейс»: ${o.item.toLowerCase()} · ${o.crewDone ? 'забрали' : 'в пути'}`, address: o.address, lat: o.lat, lon: o.lon }));
+  return { pickups, osi: [...homes.values()], reverse };
+}
+
+function attachMap(el, counts, layers) {
   const slot = el.querySelector('[data-map]');
   if (!slot) return;
   const m = mountMap(slot, 'akimat', { zoom: 12 });
@@ -152,7 +169,7 @@ function attachMap(el, counts) {
     { ...AKIMAT_PT, id: 'akimat', name: AKIMAT_PT.name },
     ...LANDFILLS.map((l, i) => ({ ...l, id: `lf${i}`, name: l.official ? `Полигон ТБО «${l.official}»` : 'Полигон ТБО' })),
   ];
-  setPins(m, 'points', pts);
+  setPins(m, 'points', [...pts, ...layers.pickups, ...layers.osi, ...layers.reverse]);
   setArea(m, 'landfill', LANDFILLS[0] ? [LANDFILLS[0].lat, LANDFILLS[0].lon] : null, { label: 'Полигон ТБО' });
   if (!ui.fitted) { ui.fitted = true; fitTo(m, [...LEAGUE, ...BOXES, ...LANDFILLS], { maxZoom: 13, padding: 20 }); }
 }

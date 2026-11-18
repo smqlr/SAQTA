@@ -3,6 +3,8 @@ import { EXAMPLES, CATEGORIES, DEVICE_TYPES, METHODS, BONUS, WALLET, TAGS, APP_N
 import { LEAGUE, BOXES, pointsFor, pointById } from '../geo/points.js';
 import { geo } from '../lib/map/geo.js';
 import { mountMap, setPins, setMe, panTo, fitTo, byDistance, fmtDist } from '../lib/map/view.js';
+import { reverse } from '../lib/map/address.js';
+import { addressField, bindAddress } from '../lib/addr-ui.js';
 import { getState, submitDonation, residentPickupDone, suggestTag, donationsThisMonth, selectHubItem } from '../store.js';
 import { ART } from '../lib/art.js';
 import { ICON } from '../lib/icons.js';
@@ -12,8 +14,14 @@ import { tagChip, demoMark, toast } from '../lib/ui.js';
 
 // Локальное состояние потока (не сохраняется: это шаги одного действия)
 let cat = CATEGORIES[0].id; // выбранная подтема — переживает возврат на старт
-const fresh = () => ({ step: 'start', exampleId: null, manual: null, photoUrl: null, method: null, pointId: null, receiptId: null, tab: 'school', all: false, fitted: '' });
+const fresh = () => ({ step: 'start', exampleId: null, manual: null, photoUrl: null, method: null, pointId: null, receiptId: null, tab: 'school', all: false, fitted: '', pick: { q: null, addr: null, day: 1, time: 0 } });
 let me = null; // где житель (если разрешил геолокацию); иначе расстояния — от центра города
+
+// Окна вывоза крупной техники: ближайшие три дня, три интервала
+const TIMES = ['10:00–13:00', '13:00–16:00', '16:00–19:00'];
+const dayFmt = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+const dayLabel = (n) => dayFmt.format(new Date(Date.now() + n * 86400000)).replace('.', '');
+const slotText = (p) => `${dayLabel(p.day)}, ${TIMES[p.time]}`;
 let ui = fresh();
 export function home() {
   if (ui.photoUrl) URL.revokeObjectURL(ui.photoUrl);
@@ -101,7 +109,7 @@ function myDonations(st) {
       return `<div class="li">
         <div class="ico ${d.type === 'big' ? 'orange' : ''}">${d.type === 'big' ? ICON.truck : ICON.box}</div>
         <div class="grow"><b>${esc(d.model)}</b> <span class="xs faint">${d.deviceNo}</span>
-          <div class="xs muted">${dateTime(d.ts)}</div>
+          <div class="xs muted">${d.type === 'big' && d.address ? `${esc(d.address)} · ${esc(d.slot || '')}` : `${d.point ? `${esc(d.point)} · ` : ''}${dateTime(d.ts)}`}</div>
           <span class="status-pill ${kind} mt-8">${label}</span>
           ${d.status === 'awaiting-pickup' ? `<div><button class="btn sm ghost mt-8" data-pickup="${d.id}">${ICON.truck} Скупка забрала</button></div>` : ''}
         </div>
@@ -212,7 +220,7 @@ function method() {
         <span class="ico">${icons[k]}</span><span class="grow"><b>${METHODS[k].label}</b><br><span class="small muted">${cap(METHODS[k].hint)}</span></span></button>`,
     )
     .join('')}</div>
-  ${big ? '' : pointPicker(ui.method)}
+  ${big ? pickupForm() : pointPicker(ui.method)}
   <p class="error mt-12" id="limitErr" hidden>В этом месяце уже сдано ${WALLET.monthlyDeviceLimit} устройств — это лимит на человека. Продолжить можно в следующем месяце.</p>
   <button class="btn primary lg block mt-16" data-submit>${big ? 'Вызвать вывоз' : 'Сдать и получить QR-код'}</button>`;
 }
@@ -242,6 +250,20 @@ function pointPicker(method) {
   ${list.length > 4 ? `<button class="btn plain mt-8" data-all>${ui.all ? 'Свернуть список' : `Все ${method === 'school' ? 'школы' : 'боксы'}: ${list.length}`}</button>` : ''}`;
 }
 
+// Вывоз крупной техники: адрес (поиск или точка на карте) и удобное время
+function pickupForm() {
+  const p = ui.pick;
+  return `
+  <div class="section-label mt-24">Откуда забрать</div>
+  ${addressField('pAddr', p)}
+  <div class="map-card mt-8"><div class="map-slot" data-map></div></div>
+  <p class="footnote">Найдите адрес или нажмите на карту, где стоит техника.</p>
+  <div class="section-label mt-24">Когда удобно</div>
+  <div class="seg block" role="group" aria-label="День">${[1, 2, 3].map((d) => `<button data-day="${d}" aria-pressed="${p.day === d}">${dayLabel(d)}</button>`).join('')}</div>
+  <div class="seg block mt-8" role="group" aria-label="Время">${TIMES.map((t, i) => `<button data-time="${i}" aria-pressed="${p.time === i}">${t}</button>`).join('')}</div>
+  <p class="error mt-12" id="addrErr" hidden>Укажите адрес: найдите его или поставьте точку на карте</p>`;
+}
+
 // Справочная страница: где сдать технику
 function points() {
   const list = byDistance(ref(), ui.tab === 'school' ? LEAGUE : BOXES);
@@ -263,6 +285,7 @@ function points() {
 function attachMap(el) {
   const slot = el.querySelector('[data-map]');
   if (!slot) return;
+  if (ui.step === 'method' && ui.method === 'pickup') return attachPickupMap(el, slot);
   const items = ui.step === 'points' ? (ui.tab === 'school' ? LEAGUE : BOXES) : pointsFor(ui.method);
   const m = mountMap(slot, 'resident', {
     center: ref(),
@@ -297,6 +320,27 @@ function attachMap(el) {
   ui.panTo = null;
 }
 
+function attachPickupMap(el, slot) {
+  const setAddr = (a) => { ui.pick.addr = a; ui.pick.q = null; ui.fitted = ''; render(el, getState()); };
+  const m = mountMap(slot, 'pickup', {
+    center: ui.pick.addr || ref(),
+    zoom: 13,
+    onMapClick: (pos) => setAddr(reverse(pos.lat, pos.lon)),
+    onLocate: (pos) => {
+      if (!pos) return toast('Не удалось определить, где вы');
+      if (pos.outside) return toast('Вы не в Актобе — найдите адрес поиском');
+      me = pos;
+      setAddr(reverse(pos.lat, pos.lon));
+    },
+  });
+  setMe(m, me);
+  const a = ui.pick.addr;
+  setPins(m, 'home', a ? [{ id: 'home', kind: 'pickup', name: a.label, lat: a.lat, lon: a.lon }] : [], { selectedId: 'home' });
+  const view = `pickup:${a ? `${a.lat},${a.lon}` : ''}`;
+  if (ui.fitted !== view) { ui.fitted = view; if (a) panTo(m, a, 16); else fitTo(m, [ref()], { maxZoom: 12 }); }
+  bindAddress(el, 'pAddr', ui.pick, setAddr);
+}
+
 // ── Шаг 4: QR-квитанция ─────────────────────────────────────────────────────
 function receipt(st) {
   const d = st.donations.find((x) => x.id === ui.receiptId);
@@ -312,6 +356,7 @@ function receipt(st) {
       <div><span>Устройство</span><b>${esc(d.model)}</b></div>
       <div><span>Куда</span><b>${d.point ? esc(d.point) : METHODS[d.method].label}</b></div>
       ${d.address ? `<div><span>Адрес</span><b>${esc(d.address)}</b></div>` : ''}
+      ${d.slot ? `<div><span>Когда</span><b>${esc(d.slot)}</b></div>` : ''}
       <div><span>Бонусы</span><b>+${num(d.bonus)} после ${big ? 'вывоза' : 'проверки'}</b></div>
     </div>
     ${['phone', 'laptop'].includes(d.type) ? `<div class="notice" style="text-align:left;width:100%;background:var(--fill-2)"><div class="ico">${ICON.shield}</div><div class="small">Данные сотрём или уничтожим носитель. Сертификат придёт сюда, в приложение.</div></div>` : ''}
@@ -351,6 +396,8 @@ function bind(el) {
       ui.all = false;
       return render(el, getState());
     }
+    if (t.dataset.day) { ui.pick.day = +t.dataset.day; return render(el, getState()); }
+    if (t.dataset.time) { ui.pick.time = +t.dataset.time; return render(el, getState()); }
     if (t.dataset.tab) {
       ui.tab = t.dataset.tab;
       ui.all = false;
@@ -383,7 +430,9 @@ function bind(el) {
     }
     if (t.hasAttribute('data-submit')) {
       try {
-        const d = submitDonation({ exampleId: ui.exampleId, manual: ui.manual, method: ui.method, pointId: ui.pointId });
+        if (ui.method === 'pickup' && !ui.pick.addr) { el.querySelector('#addrErr').hidden = false; el.querySelector('#pAddr')?.focus(); return; }
+        const pickup = ui.method === 'pickup' ? { ...ui.pick.addr, slot: slotText(ui.pick) } : null;
+        const d = submitDonation({ exampleId: ui.exampleId, manual: ui.manual, method: ui.method, pointId: ui.pointId, pickup });
         ui.receiptId = d.id;
         ui.step = 'receipt';
         rerender(el);

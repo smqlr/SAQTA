@@ -9,8 +9,8 @@ import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
 import { DAY, pad, num } from './lib/format.js';
 
-const KEY = 'qaita-v2';
-const VERSION = 2; // 2: точки сдачи на карте Актобе
+const KEY = 'qaita-v3';
+const VERSION = 3; // 2: точки сдачи на карте Актобе; 3: адреса вывоза, доставки и дома ОСИ
 const listeners = new Set();
 let state;
 
@@ -78,7 +78,7 @@ export function initialState(preset = 'ready') {
     bank: seedBank(t),
     akimat: { kg: { reverse: 0, osi: 0, amnesty: 0, requests: 0, hub: 0 }, events: [] },
     shop: { orders: [], crewEarned: 0 },
-    osi: { balance: 0, tags: [] },
+    osi: { balance: 0, tags: [], home: null },
     test30Runs: 0,
   };
   if (preset === 'ready') {
@@ -154,7 +154,8 @@ export function donationsThisMonth() {
 
 // ── Житель ──────────────────────────────────────────────────────────────────
 // pointId — школа Донор-лиги или бокс в ЦОН/вузе на карте (для вывоза крупной техники — нет)
-export function submitDonation({ exampleId, manual, method, pointId }) {
+// pickup — адрес и время вывоза крупной техники: { label, lat, lon, slot }
+export function submitDonation({ exampleId, manual, method, pointId, pickup = null }) {
   if (donationsThisMonth() >= WALLET.monthlyDeviceLimit) {
     const err = new Error('limit');
     err.code = 'limit';
@@ -168,9 +169,12 @@ export function submitDonation({ exampleId, manual, method, pointId }) {
   const big = DEVICE_TYPES[type].big;
   const pt = big ? null : pointById(pointId);
   if (!big && !pt) throw new Error('point');
+  if (big && !pickup) throw new Error('address');
+  const where = pt || pickup;
   const d = {
     id: uid(), ts: now(), deviceNo: nextDevice(), model, type, state: stateText, tag, method,
-    pointId: pt?.id || null, point: pt?.name || null, address: pt?.address || null, exampleId: ex ? ex.id : null,
+    pointId: pt?.id || null, point: pt?.name || null, address: pt ? pt.address || null : pickup.label,
+    lat: where.lat, lon: where.lon, slot: pickup?.slot || null, exampleId: ex ? ex.id : null,
     status: big ? 'awaiting-pickup' : 'sent', bonus: DEVICE_TYPES[type].bonus * mult(),
   };
   state.donations.push(d);
@@ -196,7 +200,7 @@ export function residentPickupDone(donationId) {
   if (!d || d.status !== 'awaiting-pickup') return;
   d.status = 'picked';
   credit(d.bonus, 'accrual', 'Вывоз крупной техники', `${d.model} · ${d.deviceNo}`);
-  addKg('requests', WEIGHT_KG.residentPickup, `${d.model}: вывоз по заявке жителя`);
+  addKg('requests', WEIGHT_KG.residentPickup, `${d.model}: вывоз по заявке жителя`, { lat: d.lat, lon: d.lon, address: d.address });
   note('Технику забрали', `${d.model}: скупка забрала технику и выдала акт с весом. +${num(d.bonus)} бонусов.`, 'bonus');
   commit({ type: 'pickup', donation: d });
 }
@@ -304,12 +308,14 @@ export const unreadCount = () => state.notes.filter((n) => n.unread).length;
 export const ropRate = (item) => ROP.rows.find((r) => r.name === item.rop)?.rate ?? null;
 export const ropTenge = (kg, rate) => (rate == null ? null : Math.round((kg / 1000) * rate)); // ставка РОП × вес
 
-export function placeOrder(itemId, pickupOld) {
+// addr — адрес доставки: { label, lat, lon }
+export function placeOrder(itemId, pickupOld, addr = null) {
   const it = SHOP_ITEMS.find((x) => x.id === itemId) || SHOP_ITEMS[0];
   const rate = ropRate(it);
   const o = {
     id: uid(), ts: now(), itemId: it.id, item: it.name, kg: it.kg, rate, rop: ropTenge(it.kg, rate),
     pickupOld, crewDone: false, no: `${state.shop.orders.length + 1}`,
+    address: addr?.label || null, lat: addr?.lat ?? null, lon: addr?.lon ?? null,
   };
   state.shop.orders.push(o);
   commit({ type: 'order', order: o });
@@ -320,13 +326,18 @@ export function crewPickup(orderId) {
   if (!o || o.crewDone || !o.pickupOld) return;
   o.crewDone = true;
   state.shop.crewEarned += PILOT.crewPremium;
-  addKg('reverse', o.kg, `${o.item}: «Обратный рейс»`, { rop: o.rop, rate: o.rate });
+  addKg('reverse', o.kg, `${o.item}: «Обратный рейс»`, { rop: o.rop, rate: o.rate, lat: o.lat, lon: o.lon, address: o.address });
   commit({ type: 'crew', order: o });
 }
 
 // ── ОСИ ─────────────────────────────────────────────────────────────────────
+export function osiSetHome(addr) {
+  state.osi.home = addr ? { label: addr.label, lat: addr.lat, lon: addr.lon } : null;
+  commit({ type: 'osi-home' });
+}
 export function osiMark({ kind, what, photo }) {
-  const t = { id: uid(), no: `B-${pad(state.seq.tag++, 4)}`, kind, what, photo: !!photo, ts: now(), status: 'marked' };
+  const h = state.osi.home;
+  const t = { id: uid(), no: `B-${pad(state.seq.tag++, 4)}`, kind, what, photo: !!photo, ts: now(), status: 'marked', address: h?.label || null, lat: h?.lat ?? null, lon: h?.lon ?? null };
   state.osi.tags.unshift(t);
   commit({ type: 'osi-mark', tag: t });
   return t;
@@ -337,8 +348,9 @@ export function osiPickup(tagId) {
   t.status = 'picked';
   const bonus = t.kind === 'big' ? BONUS.osiBig : BONUS.osiSmall;
   state.osi.balance += bonus;
-  if (t.kind === 'big') addKg('osi', WEIGHT_KG.osiBig, `${t.what}: «Бирка у бака»`);
-  else addKg('hub', WEIGHT_KG.hubAvg, `${t.what}: «Бирка у бака», мелкое — маршрут в хаб`);
+  const at = { lat: t.lat, lon: t.lon, address: t.address };
+  if (t.kind === 'big') addKg('osi', WEIGHT_KG.osiBig, `${t.what}: «Бирка у бака»`, at);
+  else addKg('hub', WEIGHT_KG.hubAvg, `${t.what}: «Бирка у бака», мелкое — маршрут в хаб`, at);
   commit({ type: 'osi-pickup', tag: t, bonus });
 }
 
