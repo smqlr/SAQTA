@@ -434,6 +434,15 @@ function receipt(st) {
 
 // ── События ─────────────────────────────────────────────────────────────────
 function bind(el) {
+  // Ряд подтем: колесо мыши крутит его вбок (полоса-ползунок и свайп работают сами)
+  const cats = el.querySelector('.cats');
+  if (cats) {
+    cats.addEventListener('wheel', (e) => {
+      if (cats.scrollWidth <= cats.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      e.preventDefault();
+      cats.scrollLeft += e.deltaY;
+    }, { passive: false });
+  }
   el.onclick = (e) => {
     const t = e.target.closest('button, [data-go]');
     if (!t) return;

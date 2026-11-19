@@ -1,27 +1,114 @@
 {
+  "id": "./",
   "name": "QAITA",
   "short_name": "QAITA",
+  "description": "Сбор старой техники в Актобе: куда сдать, вывоз крупной техники, бонусы на карту.",
   "lang": "ru",
-  "start_url": "./",
+  "dir": "ltr",
+  "start_url": "./#resident",
   "scope": "./",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "background_color": "#f2f2f7",
   "theme_color": "#f9f9fb",
+  "categories": [
+    "utilities",
+    "lifestyle"
+  ],
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "icon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Сдать технику",
+      "short_name": "Сдать",
+      "url": "./#resident",
+      "icons": [
+        {
+          "src": "shortcut-give.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Кошелёк",
+      "url": "./#wallet",
+      "icons": [
+        {
+          "src": "shortcut-wallet.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Панель акимата",
+      "short_name": "Акимат",
+      "url": "./#akimat",
+      "icons": [
+        {
+          "src": "shortcut-akimat.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screens/phone-resident.png",
+      "sizes": "780x1688",
+      "form_factor": "narrow",
+      "label": "Сдать технику: примеры по видам и бонусы",
+      "type": "image/png"
+    },
+    {
+      "src": "screens/phone-wallet.png",
+      "sizes": "780x1688",
+      "form_factor": "narrow",
+      "label": "Кошелёк: бонусы, роялти, вывод на карту",
+      "type": "image/png"
+    },
+    {
+      "src": "screens/phone-hub.png",
+      "sizes": "780x1688",
+      "form_factor": "narrow",
+      "label": "Хаб: триаж, ТЕСТ-30, банк деталей",
+      "type": "image/png"
+    },
+    {
+      "src": "screens/wide-akimat.png",
+      "sizes": "1280x800",
+      "form_factor": "wide",
+      "label": "Панель акимата: тонны, РОП, карта сбора",
+      "type": "image/png"
     }
   ]
 }

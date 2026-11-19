@@ -16,6 +16,7 @@ import { maybeOnboard, startOnboarding } from './lib/onboarding.js';
 import { mascotFace } from './lib/mascot.js';
 import { openChat } from './lib/chat.js';
 import { esc } from './lib/format.js';
+import { initInstall, install, isStandalone, bannerWanted, dismissBanner, onInstallChange } from './lib/install.js';
 
 // Приложение жителя — нижнее меню; «Сдать» — большая кнопка по центру
 const RESIDENT = [
@@ -35,11 +36,28 @@ const PARTNERS = [
 const ALL = [...RESIDENT, ...PARTNERS];
 const isPartner = (s) => PARTNERS.includes(s);
 
+// ── Тема: светлая по умолчанию, тёмная — из меню «Житель ▾ → Показ»; выбор хранится в браузере ──
+const THEME_KEY = 'qaita-theme';
+const THEME_BAR = { light: '#f9f9fb', dark: '#161618' };
+function savedTheme() { try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch { return 'light'; } }
+function applyTheme(t) {
+  if (t === 'dark') document.documentElement.dataset.theme = 'dark';
+  else delete document.documentElement.dataset.theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_BAR[t]);
+  document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', t);
+}
+function setTheme(t) {
+  try { localStorage.setItem(THEME_KEY, t); } catch { /* без хранилища тема живёт до перезагрузки */ }
+  applyTheme(t);
+}
+applyTheme(savedTheme());
+
 document.title = APP_NAME;
 const app = document.getElementById('app');
 app.innerHTML = `
   <header class="topbar" id="topbar"><div class="topbar-in" id="topIn"></div></header>
   <main class="view" id="view" tabindex="-1"></main>
+  <div class="install-slot"></div>
   <nav class="tabbar" id="tabbar" aria-label="Разделы"><div class="tabbar-in">
     ${RESIDENT.map((s) => `<a class="tb${s.main ? ' main' : ''}" href="#${s.id}" data-screen="${s.id}">${s.main ? `<span class="main-btn">${s.icon}</span>` : s.icon}<span>${s.label}</span></a>`).join('')}
   </div></nav>`;
@@ -75,6 +93,11 @@ function route() {
   tabbar.hidden = isPartner(s);
   tabbar.querySelectorAll('.tb').forEach((b) => (b.dataset.screen === s.id ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
   renderCurrent(changed);
+  if (changed) { // мягкое появление экрана, как при переходе в приложении
+    view.classList.remove('enter');
+    void view.offsetWidth;
+    view.classList.add('enter');
+  }
 }
 
 function renderCurrent(scrollTop = false) {
@@ -103,6 +126,7 @@ topIn.addEventListener('click', (e) => {
   if (e.target.closest('#askBtn')) return openChat();
   if (!e.target.closest('#menuBtn')) return;
   const st = getState();
+  const dark = savedTheme() === 'dark';
   sheet('Кто ты сегодня?', (body, close) => {
     body.innerHTML = `<div class="menu">
       <div class="rows">
@@ -112,6 +136,8 @@ topIn.addEventListener('click', (e) => {
       <div class="section-label mt-16">Показ</div>
       <div class="rows">
         <button class="rowi" data-act="tazaru" role="menuitemcheckbox" aria-checked="${st.tazaru}"><span class="r-ico">${ICON.sun}</span><span class="grow">Неделя Тазару күні<small>Бонусы × 2 за сданную технику</small></span><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
+        <button class="rowi" data-act="theme" role="menuitemcheckbox" aria-checked="${dark}"><span class="r-ico">${ICON.moon}</span><span class="grow">Тёмная тема<small>Тёмный фон для вечера и сцены</small></span><span class="switch ${dark ? 'on' : ''}"></span></button>
+        ${isStandalone() ? '' : `<button class="rowi" data-act="install"><span class="r-ico">${ICON.install}</span><span class="grow">Установить на телефон<small>Иконка на рабочем столе, без адресной строки</small></span></button>`}
         <button class="rowi" data-act="ready"><span class="r-ico">${ICON.wallet}</span><span class="grow">Кошелёк с историей<small>1 320 бонусов: ноутбук и роялти</small></span></button>
         <button class="rowi" data-act="clean"><span class="r-ico">${ICON.reset}</span><span class="grow">Начать с нуля<small>Пустой кошелёк, без заявок</small></span></button>
         <button class="rowi" data-act="tour"><span class="r-ico">${ICON.info}</span><span class="grow">Знакомство с Кайтиком<small>Показать обучение заново</small></span></button>
@@ -124,6 +150,12 @@ topIn.addEventListener('click', (e) => {
       if (!b) return;
       const act = b.dataset.act;
       if (act === 'tazaru') { setTazaru(!getState().tazaru); toast(getState().tazaru ? 'Тазару күні: бонусы × 2' : 'Тазару күні выключен'); }
+      if (act === 'theme') {
+        const next = savedTheme() === 'dark' ? 'light' : 'dark';
+        setTheme(next);
+        renderCurrent(); // графики и карта берут цвета темы при отрисовке
+        toast(next === 'dark' ? 'Тёмная тема' : 'Светлая тема');
+      }
       if (act === 'clean' || act === 'ready') {
         ALL.forEach((s) => s.mod.home?.());
         reset(act);
@@ -131,9 +163,32 @@ topIn.addEventListener('click', (e) => {
       }
       close();
       if (act === 'tour') startOnboarding();
+      if (act === 'install') install(); // своё окно: Android — системная установка, iPhone и офлайн-файл — шаги
     });
   });
 });
+
+// ── Установка как приложения: плашка над нижним меню и пункт в меню ─────────
+initInstall();
+function renderInstallBar() {
+  const slot = document.querySelector('.install-slot');
+  slot.innerHTML = bannerWanted()
+    ? `<div class="install-bar" role="region" aria-label="Установка приложения">
+        <span class="brand-mark">${ICON.logo}</span>
+        <div class="grow"><b>Установите ${APP_NAME}</b><div class="xs muted">Как приложение, без интернета</div></div>
+        <button class="btn primary sm" data-install>Установить</button>
+        <button class="icon-btn" data-dismiss aria-label="Скрыть">${ICON.close}</button>
+      </div>`
+    : '';
+  document.documentElement.classList.toggle('has-install-bar', !!slot.firstElementChild);
+}
+document.querySelector('.install-slot').addEventListener('click', (e) => {
+  if (e.target.closest('[data-install]')) install();
+  if (e.target.closest('[data-dismiss]')) dismissBanner();
+});
+onInstallChange(renderInstallBar);
+matchMedia('(max-width: 900px)').addEventListener?.('change', renderInstallBar);
+renderInstallBar();
 
 route();
 // Партнёрский режим по прямой ссылке (например, паспорт QAITA Доктора в хабе) открываем без обучения жителя
@@ -145,5 +200,10 @@ if (/^https?:$/.test(location.protocol)) {
   link.rel = 'manifest';
   link.href = 'manifest.webmanifest';
   document.head.appendChild(link);
+  // Иконка для iPhone (рабочий стол iOS берёт её, а не manifest)
+  const touch = document.createElement('link');
+  touch.rel = 'apple-touch-icon';
+  touch.href = 'apple-touch-icon.png';
+  document.head.appendChild(touch);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 }

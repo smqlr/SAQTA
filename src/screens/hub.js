@@ -338,7 +338,7 @@ function askBlock(it) {
           ${ps?.disks?.length ? `<div class="xs muted">${ps.disks.map((d) => `${esc(d.model || 'диск')}${d.gb ? ` · ${num(d.gb)} ГБ` : ''} · SMART: ${d.smart === 'ok' ? 'в норме' : d.smart === 'fail' ? '<b style="color:var(--tag-danger)">сбой</b>' : 'нет данных'}${d.wearPct != null ? ` · износ ${d.wearPct}%` : ''}${d.hours != null ? ` · ${num(d.hours)} ч` : ''}`).join('<br>')}</div>` : ''}
           ${ps?.device ? `<div class="xs muted">${[ps.device.cpu, ps.device.ramGB ? `${ps.device.ramGB} ГБ памяти` : null, ps.device.os].filter(Boolean).map(esc).join(' · ')}${ps.device.lock === 'enabled' ? ' · <b style="color:var(--tag-danger)">блокировка активации: целым не продаём</b>' : ps.device.lock === 'disabled' ? ' · блокировки активации нет' : ''}</div>` : ''}
           <div class="mt-8"><b style="color:${verdict[1]}">${verdict[0]}</b></div>
-          <div class="mt-8">${src}</div>
+          <div class="mt-8 wrap-note">${src}</div>
         </div></div>` : ''}
     <div class="row wrap mt-12">
       <button class="btn ${s ? 'ghost' : 'primary'}" data-ask="${it.id}">${ICON.battery} Спроси устройство</button>

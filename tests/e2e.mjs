@@ -88,6 +88,17 @@ for (const c of cats) {
   ok(n >= 4 && n <= 5, `подтема «${await page.textContent(`[data-cat="${c}"]`)}»: ${n} устройств`);
 }
 await page.click('[data-cat="digital"]');
+const catBar = await page.$eval('.cats', (c) => ({
+  overflow: c.scrollWidth > c.clientWidth,
+  bar: getComputedStyle(c).scrollbarWidth,
+  hidden: getComputedStyle(c, '::-webkit-scrollbar').display === 'none',
+}));
+ok(catBar.overflow && catBar.bar !== 'none' && !catBar.hidden, `ряд подтем прокручивается, ползунок виден (scrollbar-width: ${catBar.bar})`);
+await page.hover('.cats');
+await page.mouse.wheel(0, 300);
+await page.waitForTimeout(150);
+ok((await page.$eval('.cats', (c) => c.scrollLeft)) > 0, 'колесо мыши сдвигает ряд подтем');
+await page.$eval('.cats', (c) => { c.scrollLeft = 0; });
 await page.click('[data-example="lenovo"]');
 ok((await page.textContent('#view')).includes('+200'), 'в карточке +200 бонусов за ноутбук');
 await shot('02-card');
@@ -467,6 +478,54 @@ ok((await page.textContent('[data-testid="soh"]')).trim() === '79%', 'паспо
 await page.goto(`${FILE}#hub/doctor=@@@`);
 await page.waitForTimeout(400);
 ok((await page.textContent('.toasts')).includes('не паспорт'), 'испорченная ссылка: понятная ошибка, карточка не создаётся');
+
+console.log('9з. Тёмная тема в меню');
+await go('home');
+const bodyBg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+const lightBg = await bodyBg();
+await page.click('#menuBtn');
+await page.click('.menu [data-act="theme"]');
+await page.waitForTimeout(150);
+ok((await page.getAttribute('html', 'data-theme')) === 'dark', 'меню «Житель ▾» → «Тёмная тема» включает тёмную тему');
+const darkBg = await bodyBg();
+ok(darkBg !== lightBg && /rgb\(0, 0, 0\)/.test(darkBg), `фон тёмный (${darkBg})`);
+const wide = [];
+for (const s of ['home', 'points', 'resident', 'wallet', 'profile', 'shop', 'osi', 'hub', 'akimat']) {
+  await go(s);
+  await shot(`dark-${s}`);
+  const sw = await page.evaluate(() => document.documentElement.scrollWidth);
+  if (sw > 390) wide.push(`${s}: ${sw} px`);
+}
+ok(!wide.length, `на ширине 390 px ни один экран не уезжает вбок${wide.length ? ': ' + wide.join(', ') : ''}`);
+await page.reload();
+await page.waitForTimeout(300);
+ok((await page.getAttribute('html', 'data-theme')) === 'dark', 'тёмная тема сохраняется после перезагрузки');
+await page.click('#menuBtn');
+ok((await page.getAttribute('.menu [data-act="theme"]', 'aria-checked')) === 'true', 'в меню переключатель темы включён');
+await page.click('.menu [data-act="theme"]');
+await page.waitForTimeout(150);
+ok((await page.getAttribute('html', 'data-theme')) === null && (await bodyBg()) === lightBg, 'обратно на светлую тему');
+
+console.log('9и. Как приложение на телефоне');
+await go('home');
+const nav = await page.evaluate(() => {
+  const t = document.querySelector('.tabbar');
+  return { shown: !t.hidden && getComputedStyle(t).display !== 'none', pinned: Math.round(t.getBoundingClientRect().bottom) === innerHeight };
+});
+ok(nav.shown && nav.pinned, 'на телефоне меню жителя внизу экрана, как в приложении');
+await page.click('.tabbar .tb[data-screen="wallet"]');
+await page.waitForTimeout(250);
+ok((await page.evaluate(() => location.hash)) === '#wallet', 'нижнее меню переключает разделы');
+await page.click('#menuBtn');
+await page.click('.menu [data-act="install"]');
+await page.waitForTimeout(200);
+ok((await page.textContent('.sheet')).includes('офлайн-файл'), 'офлайн-файл объясняет, что установка — по ссылке');
+await page.click('.sheet [data-close]');
+const desk = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await desk.goto(`${FILE}#home`);
+await desk.waitForTimeout(300);
+ok(await desk.evaluate(() => { const t = document.querySelector('.tabbar'); return !t.hidden && getComputedStyle(t).display !== 'none'; }), 'на компьютере меню жителя тоже на месте — разделы не теряются');
+await desk.close();
 
 console.log('10. Офлайн и ошибки');
 ok(external.length === 0, `внешних запросов нет (${external.length})`);

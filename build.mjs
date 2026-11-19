@@ -1,7 +1,7 @@
 // Сборка одного офлайн-файла: JS, CSS и картинки внутри HTML. Шрифт — системный, файлов шрифтов нет.
 // Выход: dist/<APP_FILE>.html (для флешки) и docs/index.html (для GitHub Pages).
 import { build } from 'esbuild';
-import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, cp } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -67,23 +67,42 @@ await writeFile(join(root, 'docs', 'ai', 'mobilenet.bin'), aiWeights);
 
 // PWA только для версии на GitHub Pages (на file:// main.js их не подключает)
 const version = createHash('sha1').update(html).digest('hex').slice(0, 10);
+const SCREENS = [
+  { src: 'screens/phone-resident.png', sizes: '780x1688', form_factor: 'narrow', label: 'Сдать технику: примеры по видам и бонусы' },
+  { src: 'screens/phone-wallet.png', sizes: '780x1688', form_factor: 'narrow', label: 'Кошелёк: бонусы, роялти, вывод на карту' },
+  { src: 'screens/phone-hub.png', sizes: '780x1688', form_factor: 'narrow', label: 'Хаб: триаж, ТЕСТ-30, банк деталей' },
+  { src: 'screens/wide-akimat.png', sizes: '1280x800', form_factor: 'wide', label: 'Панель акимата: тонны, РОП, карта сбора' },
+];
 await writeFile(join(root, 'docs', 'manifest.webmanifest'), JSON.stringify({
+  id: './',
   name: APP_NAME,
   short_name: APP_NAME,
+  description: 'Сбор старой техники в Актобе: куда сдать, вывоз крупной техники, бонусы на карту.',
   lang: 'ru',
-  start_url: './',
+  dir: 'ltr',
+  start_url: './#resident',
   scope: './',
   display: 'standalone',
+  display_override: ['standalone', 'minimal-ui'],
   background_color: '#f2f2f7',
   theme_color: '#f9f9fb',
+  categories: ['utilities', 'lifestyle'],
   icons: [
-    { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
-    { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
-    { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml' },
+    { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+    { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+    { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
   ],
+  shortcuts: [
+    { name: 'Сдать технику', short_name: 'Сдать', url: './#resident', icons: [{ src: 'shortcut-give.png', sizes: '96x96', type: 'image/png' }] },
+    { name: 'Кошелёк', url: './#wallet', icons: [{ src: 'shortcut-wallet.png', sizes: '96x96', type: 'image/png' }] },
+    { name: 'Панель акимата', short_name: 'Акимат', url: './#akimat', icons: [{ src: 'shortcut-akimat.png', sizes: '96x96', type: 'image/png' }] },
+  ],
+  screenshots: SCREENS.map((s) => ({ ...s, type: 'image/png' })),
 }, null, 2));
 const sw = (await readFile(join(root, 'src/pwa/sw.js'), 'utf8')).replace('__VERSION__', version);
 await writeFile(join(root, 'docs', 'sw.js'), sw);
-for (const f of ['icon.svg', 'icon-192.png', 'icon-512.png']) await copyFile(join(root, 'src/pwa', f), join(root, 'docs', f));
+// Иконки и скриншоты (их рисует tools/pwa-assets.mjs) — рядом с index.html
+await cp(join(root, 'src/pwa'), join(root, 'docs'), { recursive: true, filter: (f) => !f.endsWith('sw.js') });
 await writeFile(join(root, 'docs', '.nojekyll'), '');
 console.log(`OK: dist/${APP_FILE}.html — ${(offline.length / 1048576).toFixed(1)} МБ (с ИИ внутри), docs/index.html — ${(html.length / 1024).toFixed(0)} КБ, docs/ai — ${((aiJs.length + aiWeights.length) / 1048576).toFixed(1)} МБ`);
