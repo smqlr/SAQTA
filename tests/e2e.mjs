@@ -1,15 +1,15 @@
 // Сквозной сценарий демо в настоящем браузере (Playwright), офлайн, с проверкой чисел.
 // Запуск: npm run build && npm test   (SHOTS=папка — сохранить скриншоты шагов)
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const { APP_FILE } = await import(join(root, 'src/data.js'));
-const FILE = `file://${join(root, 'dist', `${APP_FILE}.html`)}`;
+const { APP_FILE } = await import(pathToFileURL(join(root, 'src/data.js')).href);
+const FILE = pathToFileURL(join(root, 'dist', `${APP_FILE}.html`)).href;
 const SHOTS = process.env.SHOTS;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
@@ -58,6 +58,20 @@ const reset = async (preset) => {
 };
 
 await page.goto(FILE);
+
+console.log('0. Знакомство с Кайтиком и карта донора');
+await page.waitForSelector('.onb');
+ok(await page.isVisible('.onb .m-body'), 'обучение ведёт Кайтик');
+for (let i = 0; i < 4; i++) await page.click('[data-onb="next"]');
+await page.fill('#onbName', 'Айгерим');
+await page.click('[data-onb="issue"]');
+const cardId = (await page.textContent('.onb .dcard-id')).replace(/\s/g, '');
+const luhn = (s) => { let sum = 0; for (let i = 0; i < s.length; i++) { let d = +s[s.length - 1 - i]; if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9; } sum += d; } return sum % 10 === 0; };
+ok(/^\d{12}$/.test(cardId) && luhn(cardId), `карта донора: 12 цифр, контроль по Луну (${cardId})`);
+ok((await page.textContent('.onb .dcard-name')).includes('АЙГЕРИМ') || (await page.textContent('.onb .dcard-name')).includes('Айгерим'), 'имя на карте');
+await page.click('[data-onb="done"]');
+await page.waitForTimeout(200);
+ok(!(await page.$('.onb')) && (await page.textContent('#view')).includes('Айгерим'), 'главная: приветствие по имени');
 
 console.log('1. Чистый старт');
 await reset('clean');
@@ -204,16 +218,23 @@ ok(akPins >= 47, `на карте акимата ${akPins} точек: школ�
 ok((await page.textContent('[aria-label="Карта сбора"]')).includes('Сдано через школы и боксы: 1'), 'счётчик сдач через точки: 1');
 ok((await page.textContent('#view')).includes(chosen), `в рейтинге школ — ${chosen}`);
 
-console.log('6г. Пункты приёма на карте');
-await go('resident');
-await page.click('[data-go="points"]');
+console.log('6г. Вкладка «Карта»: пункты приёма');
+await go('points');
 await page.waitForSelector('.qmap .leaflet-tile-loaded');
-ok((await page.$$('.qmap .qpin')).length === 40, 'страница пунктов: 40 школ');
-await page.click('[data-tab="box"]');
-await page.waitForTimeout(200);
-const boxes = await page.$$eval('.li-btn b', (els) => els.map((e) => e.textContent));
+ok((await page.$$('.qmap .qpin')).length === 46, 'на карте 46 точек: 40 школ, 5 боксов и хаб');
+await page.click('[data-f="box"]');
+await page.waitForTimeout(250);
+ok((await page.$$('.qmap .qpin')).length === 5, 'фильтр «ЦОН и вузы»: 5 боксов');
+const boxes = await page.$$eval('.pt-row b', (els) => els.map((e) => e.textContent));
 ok(boxes.length === 5 && boxes.some((b) => b.includes('обслуживания населения')) && boxes.some((b) => b.includes('университет')), `боксы: ${boxes.length} (ЦОН и вузы)`);
-await page.click('[data-go="start"]');
+await page.click('.pt-row');
+await page.waitForTimeout(150);
+ok((await page.textContent('[data-testid="point-detail"]')).includes('Крупную технику не приносить'), 'карточка пункта: что принимает');
+await page.click('[data-give]');
+await page.waitForTimeout(250);
+ok((await page.textContent('#view')).includes('Пункт выбран'), '«Сдать сюда» переносит пункт в раздел «Сдать»');
+await page.click('[data-unprefer]');
+await page.click('[data-f="all"]').catch(() => {});
 
 console.log('6д. Вывоз холодильника по адресу');
 await go('resident');
@@ -322,6 +343,39 @@ await page.click('[data-cert]');
 const cert = await page.textContent('.sheet');
 ok(cert.includes(`WD-${a50No.slice(2)}`) && cert.includes('NIST SP 800-88') && cert.includes('Данные удалены'), `сертификат WD-${a50No.slice(2)}: стирание по NIST SP 800-88`);
 await page.click('.sheet [data-close]');
+
+console.log('9г. Сырьё: отгрузка переработчику');
+await go('hub');
+const rawBefore = await page.textContent('[aria-label="Сырьё и переработчики"]');
+ok(/готово к отгрузке/.test(rawBefore), 'в хабе есть раздел «Сырьё и переработчики»');
+if (await page.isEnabled('[data-ship]')) {
+  await page.click('[data-ship]');
+  await page.waitForTimeout(200);
+  ok((await page.textContent('[aria-label="Сырьё и переработчики"]')).includes('Акт R-0001'), 'акт отгрузки R-0001 с весом');
+} else ok(false, 'после триажа есть сырьё для отгрузки');
+
+console.log('9д. Помощник Кайтик');
+await go('home');
+await page.click('#askBtn');
+await page.fill('#chatIn', 'Куда сдать холодильник?');
+await page.press('#chatIn', 'Enter');
+const chatHas = (t) => page.waitForFunction((s) => document.querySelector('.chat-log')?.textContent.includes(s), t, { timeout: 5000 }).then(() => true, () => false);
+ok(await chatHas('Вызвать вывоз'), 'на вопрос про холодильник — вывоз из дома');
+await page.waitForSelector('.typing', { state: 'detached' });
+await page.click('.chat-sugg .chip:has-text("Как стереть данные?")');
+ok(await chatHas('NIST'), 'про стирание данных — порядок и NIST SP 800-88');
+await page.keyboard.press('Escape');
+
+console.log('9е. ИИ в телефоне: распознавание фото без интернета');
+await go('resident');
+if (!(await page.$('#photoInput'))) await page.click('[data-go="start"]');
+await page.setInputFiles('#photoInput', join(root, 'src/assets/photos/kettle.webp'));
+await page.waitForSelector('.guess-i, .notice.warn', { timeout: 90000 });
+const top = (await page.textContent('.guess-i[aria-pressed="true"] b').catch(() => '')) || '';
+ok(/Чайник/.test(top), `MobileNet в браузере узнал чайник: «${top.trim()}»`);
+await page.click('[data-cond="dead"]');
+await page.click('[data-ai-next]');
+ok((await page.textContent('#view')).includes('Что будет с вещью'), 'после фото — карточка и путь вещи');
 
 console.log('10. Офлайн и ошибки');
 ok(external.length === 0, `внешних запросов нет (${external.length})`);

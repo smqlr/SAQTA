@@ -2,7 +2,7 @@
 // Хранится в localStorage (если доступен), иначе в памяти. «Сбросить демо» возвращает пресет.
 import {
   BONUS, DEVICE_TYPES, EXAMPLES, WALLET, WEIGHT_KG, PARTS, SAMPLE_PASSPORT, SAMPLE_TAG_NO,
-  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, PILOT, SHOP_ITEMS,
+  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, PILOT, SHOP_ITEMS, TYPE_KG, RAW, DONOR_PARTS_SHARE,
 } from './data.js';
 import { LEAGUE, pointById } from './geo/points.js';
 import { expectedValue } from './lib/ev.js';
@@ -51,7 +51,7 @@ function seedHub(t) {
   };
   return [
     item(781, 'a50', 'triaged'),
-    item(782, 'iphone11', 'new'),
+    item(782, 'galaxyj', 'new'),
     item(783, 'scooter', 'new'),
     item(784, 'nokia105', 'new'),
     item(785, 'kettle', 'new'),
@@ -98,6 +98,7 @@ export function initialState(preset = 'ready') {
     certs: [],
     osi: { balance: 0, tags: [], home: null },
     test30Runs: 0,
+    raw: { acts: [], shippedIds: [] },
   };
   if (preset === 'ready') {
     // Решение команды 18.11: в демо-кошельке «сдача ноутбука +200» и «роялти +1 120» (итого 1 320)
@@ -415,6 +416,36 @@ export function osiPickup(tagId) {
   if (t.kind === 'big') addKg('osi', WEIGHT_KG.osiBig, `${t.what}: «Бирка у бака»`, at);
   else addKg('hub', WEIGHT_KG.hubAvg, `${t.what}: «Бирка у бака», мелкое — маршрут в хаб`, at);
   commit({ type: 'osi-pickup', tag: t, bonus });
+}
+
+// ── Сырьё: что не спасти — лицензированному переработчику ───────────────────
+// Целое — на вторую жизнь (в сырьё не идёт), с «Донора» сняты детали (≈ 12% массы), «Опасно» — Li-ion в спецупаковке.
+export function rawStock() {
+  const shipped = new Set(state.raw?.shippedIds || []);
+  const stock = {};
+  const ids = [];
+  for (const it of state.hub.queue) {
+    if (it.status !== 'triaged' || shipped.has(it.id)) continue;
+    const kg = TYPE_KG[it.type] ?? WEIGHT_KG.hubAvg;
+    const m = it.tag === 'whole' ? 0 : it.tag === 'donor' ? kg * (1 - DONOR_PARTS_SHARE) : kg;
+    if (!m) continue;
+    const frac = it.tag === 'danger' ? 'liion' : RAW.some((r) => r.id === it.type) ? it.type : 'small';
+    stock[frac] = Math.round(((stock[frac] || 0) + m) * 1000) / 1000;
+    ids.push(it.id);
+  }
+  return { stock, ids };
+}
+export function shipRaw() {
+  const { stock, ids } = rawStock();
+  if (!ids.length) return null;
+  state.raw = state.raw || { acts: [], shippedIds: [] };
+  const kg = Object.values(stock).reduce((a, b) => a + b, 0);
+  const value = Object.entries(stock).reduce((a, [f, m]) => a + m * (RAW.find((r) => r.id === f)?.perKg || 0), 0);
+  const act = { id: uid(), no: `R-${pad(state.raw.acts.length + 1, 4)}`, ts: now(), stock, kg: Math.round(kg * 100) / 100, value: Math.round(value), items: ids.length };
+  state.raw.acts.unshift(act);
+  state.raw.shippedIds.push(...ids);
+  commit({ type: 'raw-ship', act });
+  return act;
 }
 
 export const SAMPLE_TAG = SAMPLE_TAG_NO;

@@ -1,8 +1,9 @@
 // Иллюстрации устройств — собственная простая рисовка в SVG (внутри файла, без внешних картинок).
+import { PHOTO } from './photos.js';
 const wrap = (inner, label) =>
   `<svg class="art" viewBox="0 0 120 120" role="img" aria-label="${label}">${inner}</svg>`;
 
-export const ART = {
+const SPRITE = {
   phone: (label = 'Телефон') =>
     wrap(
       `<rect x="38" y="12" width="44" height="96" rx="8" class="a-body"/>
@@ -261,3 +262,10 @@ export const ART = {
       label,
     ),
 };
+
+// Настоящее фото на белом фоне, если оно есть (src/assets/photos), иначе — рисунок.
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+export const ART = Object.fromEntries(
+  Object.keys(SPRITE).map((k) => [k, (label = '') => (PHOTO[k] ? `<img class="art photo" src="${PHOTO[k]}" alt="${esc(label)}" decoding="async">` : SPRITE[k](label))]),
+);
+export const hasPhoto = (k) => !!PHOTO[k];

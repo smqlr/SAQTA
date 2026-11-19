@@ -1,21 +1,23 @@
-/* QAITA — светлая системная тема: системный шрифт, серый фон, белые группы, один акцентный цвет */
+/* QAITA — светлая тема: системный шрифт, светло-серый фон, белые карточки, фото техники на белом, один зелёный акцент */
 :root {
   color-scheme: light;
-  --bg: #f2f2f7;
+  --bg: #f3f4f6;
   --surface: #ffffff;
-  --surface-2: #f2f2f7;
-  --fill: rgba(118, 118, 128, .12);
-  --fill-2: rgba(118, 118, 128, .07);
-  --text: #1c1c1e;
-  --muted: #6c6c70;
-  --faint: #a2a2a7;
-  --separator: #e5e5ea;
-  --border: #d8d8dd;
+  --surface-2: #f3f4f6;
+  --fill: rgba(16, 24, 40, .07);
+  --fill-2: rgba(16, 24, 40, .04);
+  --text: #111418;
+  --muted: #5f6673;
+  --faint: #9aa1ad;
+  --separator: #eceef2;
+  --border: #d6dae1;
 
-  --brand: #1d8a4a;
-  --brand-2: #17743d;
+  --brand: #0f8a5f;
+  --brand-2: #0b6e4b;
   --brand-ink: #ffffff;
-  --brand-soft: #e4f3e9;
+  --brand-soft: #e6f4ee;
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .05);
+  --shadow-2: 0 6px 20px rgba(16, 24, 40, .08), 0 1px 3px rgba(16, 24, 40, .06);
   --blue: #0a6cdf;
   --blue-soft: #e5effc;
   --warn: #b55d00;
@@ -36,8 +38,8 @@
   --art-screen: #2c2c2e;
   --art-screen-on: #d9efe1;
 
-  --radius: 14px;
-  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-sm: 12px;
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, .14), 0 2px 6px rgba(0, 0, 0, .06);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;

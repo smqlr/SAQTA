@@ -1,0 +1,8 @@
+name = "qaita-ai"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Секрет ANTHROPIC_API_KEY задаётся командой: npx wrangler secret put ANTHROPIC_API_KEY
+# [vars]
+# ALLOW_ORIGIN = "https://smqlr.github.io"

@@ -1,6 +1,6 @@
 // Экран «Хаб»: очередь с бирками, расчёт EV, «Спроси устройство», ТЕСТ-30, банк деталей с QR-паспортом.
-import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS } from '../data.js';
-import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder } from '../store.js';
+import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS, RAW, RAW_PILOT_TENGE } from '../data.js';
+import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder, rawStock, shipRaw } from '../store.js';
 import { expectedValue, decision, evExplain, pSell } from '../lib/ev.js';
 import { parseBatteryReport, stateOfHealth } from '../lib/battery-report.js';
 import { ART } from '../lib/art.js';
@@ -48,6 +48,7 @@ export function render(el, st) {
     <section class="card span-12" id="test30" aria-label="ТЕСТ-30">${test30Card(sel)}</section>
     <section class="card span-12" aria-label="Заявки мастерских">${ordersCard(st)}</section>
     <section class="card span-12" aria-label="Банк деталей">${bankCard(st)}</section>
+    <section class="card span-12" aria-label="Сырьё и переработчики">${rawCard(st)}</section>
     <section class="card span-12" aria-label="Маршрут сбора">${routeCard(st)}</section>
   </div>`;
 
@@ -57,6 +58,27 @@ export function render(el, st) {
 }
 
 const kpi = (v, l, was) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${was ? `<div class="was">Было: ${was}</div>` : ''}</div>`;
+
+// Сырьё: что не спасли — копится по видам и уходит лицензированному переработчику по акту с весом
+function rawCard(st) {
+  const { stock, ids } = rawStock();
+  const acts = st.raw?.acts || [];
+  const kgAll = Object.values(stock).reduce((a, b) => a + b, 0);
+  const value = Object.entries(stock).reduce((a, [f, m]) => a + m * (RAW.find((r) => r.id === f)?.perKg || 0), 0);
+  return `<div class="card-title"><h2>Сырьё и переработчики</h2><span class="xs muted">Целое и детали — на вторую жизнь, остальное — лицензированному переработчику</span></div>
+  <div class="dash" style="gap:14px">
+    <div class="span-7">${RAW.map((r) => `<div class="frac">
+        <span><b>${esc(r.name)}</b></span><b class="num">${(stock[r.id] || 0).toFixed(2).replace('.', ',')} кг</b>
+        <span class="xs muted">${r.hazard ? 'Опасная фракция: металлический шкаф с песком, вывоз в спецупаковке' : `${num(r.perKg)} ₸ за кг · ≈ ${num(Math.round((stock[r.id] || 0) * r.perKg))} ₸`}</span>
+      </div>`).join('')}</div>
+    <div class="span-5 stack" style="align-content:start">
+      <div class="kpi"><div class="v num">${kgAll.toFixed(2).replace('.', ',')} кг</div><div class="l">готово к отгрузке · ≈ ${num(Math.round(value))} ₸ · вещей: ${ids.length}</div></div>
+      <button class="btn primary block" data-ship ${ids.length ? '' : 'disabled'}>${ICON.truck} Отгрузить переработчику</button>
+      ${acts.length ? `<div class="list">${acts.slice(0, 4).map((a) => `<div class="li"><div class="ico gray">${ICON.doc}</div><div class="grow small"><b>Акт ${a.no}</b><div class="xs muted">${dateTime(a.ts)} · ${String(a.kg).replace('.', ',')} кг · ${a.items} вещ.</div></div><div class="amt">${num(a.value)} ₸</div></div>`).join('')}</div>` : '<p class="xs muted">Актов пока нет. Сырьё появляется после триажа: «Сырьё» целиком, «Донор» — без снятых деталей.</p>'}
+      <p class="xs muted">За весь пилот по модели сырьё даёт ≈ ${num(RAW_PILOT_TENGE)} ₸. Сами не перерабатываем: только сортируем и отгружаем по договору с актом взвешивания.</p>
+    </div>
+  </div>`;
+}
 
 function queueItem(it, sel) {
   return `<button class="qi" data-select="${it.id}" aria-current="${it.id === sel?.id}">
@@ -452,6 +474,11 @@ function bind(el, sel) {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.select) { ui.pick = null; return selectHubItem(b.dataset.select); }
+    if ('ship' in b.dataset) {
+      const act = shipRaw();
+      if (act) toast(`Акт ${act.no}: ${String(act.kg).replace('.', ',')} кг сырья — переработчику`);
+      return;
+    }
     if (b.dataset.tag) { ui.pick = { itemId: sel.id, tag: b.dataset.tag }; return render(el, getState()); }
     if (b.dataset.confirm) {
       const tag = ui.pick?.tag || sel.suggestedTag;
