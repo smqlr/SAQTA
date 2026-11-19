@@ -8,6 +8,7 @@ import * as osi from './screens/osi.js';
 import * as hub from './screens/hub.js';
 import * as akimat from './screens/akimat.js';
 import { toast } from './lib/ui.js';
+import { initInstall, install, isStandalone, bannerWanted, dismissBanner, onInstallChange } from './lib/install.js';
 
 // Порядок экранов — из плана команды: Житель · Кошелёк · Магазин · ОСИ · Хаб · Акимат
 const SCREENS = [
@@ -47,7 +48,12 @@ app.innerHTML = `
       <button class="icon-btn" id="menuBtn" aria-label="Настройки" aria-haspopup="true" aria-expanded="false">${ICON.more}</button>
     </div>
   </header>
-  <main class="view" id="view" tabindex="-1"></main>`;
+  <main class="view" id="view" tabindex="-1"></main>
+  <div class="install-slot"></div>
+  <nav class="tabbar" aria-label="Разделы"><div class="tabbar-in" role="tablist">
+    ${SCREENS.map((s) => `<button class="tab" role="tab" data-screen="${s.id}" aria-selected="false">${s.icon}<span>${s.label}</span></button>`).join('')}
+  </div></nav>`;
+// На телефоне вкладки внизу, как в приложении (.tabbar); на компьютере — сверху (.tabs). CSS показывает одну из них.
 
 const view = document.getElementById('view');
 let current = null;
@@ -59,25 +65,31 @@ function route() {
   current = s;
   document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.screen === s.id)));
   renderCurrent(changed);
+  if (changed) { // мягкое появление экрана, как при переходе в приложении
+    view.classList.remove('enter');
+    void view.offsetWidth;
+    view.classList.add('enter');
+  }
 }
 
 function renderCurrent(scrollTop = false) {
   const st = getState();
   // точка на вкладке «Кошелёк», если есть непрочитанные уведомления
-  const wTab = document.querySelector('.tab[data-screen="wallet"]');
-  wTab.querySelector('.dot')?.remove();
-  if (unreadCount() && current.id !== 'wallet') wTab.insertAdjacentHTML('beforeend', '<i class="dot" aria-label="новое уведомление"></i>');
+  document.querySelectorAll('.tab[data-screen="wallet"]').forEach((wTab) => {
+    wTab.querySelector('.dot')?.remove();
+    if (unreadCount() && current.id !== 'wallet') wTab.insertAdjacentHTML('beforeend', '<i class="dot" aria-label="новое уведомление"></i>');
+  });
   current.mod.render(view, st);
   if (scrollTop) window.scrollTo({ top: 0 });
 }
 
-document.querySelector('.tabs').addEventListener('click', (e) => {
+document.querySelectorAll('.tabs, .tabbar').forEach((nav) => nav.addEventListener('click', (e) => {
   const b = e.target.closest('.tab');
   if (!b) return;
   if (location.hash.slice(1).split('/')[0] === b.dataset.screen) current.mod.home?.();
   location.hash = b.dataset.screen;
   if (current?.id === b.dataset.screen) renderCurrent(true);
-});
+}));
 window.addEventListener('hashchange', route);
 subscribe(() => renderCurrent(false));
 
@@ -96,6 +108,8 @@ menuBtn.addEventListener('click', (e) => {
     <div class="menu-cap">${APP_NAME} · ${SLOGAN}</div>
     <button data-act="tazaru" role="menuitemcheckbox" aria-checked="${st.tazaru}"><div class="grow"><b>Неделя Тазару күні</b><div class="xs muted">Бонусы × 2 за сданную технику</div></div><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
     <button data-act="theme" role="menuitemcheckbox" aria-checked="${dark}"><div class="grow"><b>Тёмная тема</b><div class="xs muted">Тёмный фон для вечера и сцены</div></div><span class="switch ${dark ? 'on' : ''}"></span></button>
+    ${isStandalone() ? '' : `<hr>
+    <button data-act="install" role="menuitem">${ICON.install}<div><b>Установить на телефон</b><div class="xs muted">Иконка на рабочем столе, без адресной строки</div></div></button>`}
     <hr>
     <button data-act="ready" role="menuitem">${ICON.wallet}<div><b>Кошелёк с историей</b><div class="xs muted">1 320 бонусов: ноутбук и роялти</div></div></button>
     <button data-act="clean" role="menuitem">${ICON.reset}<div><b>Начать с нуля</b><div class="xs muted">Пустой кошелёк, без заявок</div></div></button>`;
@@ -106,6 +120,7 @@ menuBtn.addEventListener('click', (e) => {
     if (!b) return;
     ev.stopPropagation();
     const act = b.dataset.act;
+    if (act === 'install') install();
     if (act === 'theme') {
       const next = savedTheme() === 'dark' ? 'light' : 'dark';
       setTheme(next);
@@ -124,6 +139,28 @@ menuBtn.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => { if (!e.target.closest('.menu')) closeMenu(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
+// ── Установка как приложения ───────────────────────────────────────────
+initInstall();
+function renderInstallBar() {
+  const slot = document.querySelector('.install-slot');
+  slot.innerHTML = bannerWanted()
+    ? `<div class="install-bar" role="region" aria-label="Установка приложения">
+        <span class="brand-mark">${ICON.logo}</span>
+        <div class="grow"><b>Установите ${APP_NAME}</b><div class="xs muted">Как приложение, без интернета</div></div>
+        <button class="btn primary sm" data-install>Установить</button>
+        <button class="icon-btn" data-dismiss aria-label="Скрыть">${ICON.close}</button>
+      </div>`
+    : '';
+  document.documentElement.classList.toggle('has-install-bar', !!slot.firstElementChild);
+}
+document.querySelector('.install-slot').addEventListener('click', (e) => {
+  if (e.target.closest('[data-install]')) install();
+  if (e.target.closest('[data-dismiss]')) dismissBanner();
+});
+onInstallChange(renderInstallBar);
+matchMedia('(max-width: 900px)').addEventListener?.('change', renderInstallBar);
+renderInstallBar();
+
 route();
 
 // PWA: только когда открыто по http(s) (GitHub Pages). Офлайн-файл с флешки работает без этого.
@@ -132,5 +169,10 @@ if (/^https?:$/.test(location.protocol)) {
   link.rel = 'manifest';
   link.href = 'manifest.webmanifest';
   document.head.appendChild(link);
+  // Иконка для iPhone (рабочий стол iOS берёт её, а не manifest)
+  const touch = document.createElement('link');
+  touch.rel = 'apple-touch-icon';
+  touch.href = 'apple-touch-icon.png';
+  document.head.appendChild(touch);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 }

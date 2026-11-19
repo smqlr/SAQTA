@@ -359,6 +359,27 @@ await page.click('.menu [data-act="theme"]');
 await page.waitForTimeout(150);
 ok((await page.getAttribute('html', 'data-theme')) === null && (await bodyBg()) === lightBg, 'обратно на светлую тему');
 
+console.log('9д. Как приложение на телефоне');
+await go('resident');
+const nav = await page.evaluate(() => ({
+  bottom: getComputedStyle(document.querySelector('.tabbar')).display !== 'none',
+  top: getComputedStyle(document.querySelector('.topbar .tabs')).display !== 'none',
+  pinned: Math.round(document.querySelector('.tabbar').getBoundingClientRect().bottom) === innerHeight,
+}));
+ok(nav.bottom && !nav.top && nav.pinned, 'на телефоне вкладки внизу экрана, как в приложении');
+await page.click('.tabbar .tab[data-screen="hub"]');
+await page.waitForTimeout(250);
+ok((await page.evaluate(() => location.hash)) === '#hub', 'нижняя панель переключает экраны');
+await page.click('#menuBtn');
+await page.click('.menu [data-act="install"]');
+ok((await page.textContent('.sheet')).includes('офлайн-файл'), 'офлайн-файл объясняет, что установка — по ссылке');
+await page.click('.sheet [data-close]');
+const desk = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await desk.goto(FILE);
+ok(await desk.evaluate(() => getComputedStyle(document.querySelector('.tabbar')).display === 'none'
+  && getComputedStyle(document.querySelector('.topbar .tabs')).display !== 'none'), 'на компьютере вкладки сверху, нижней панели нет');
+await desk.close();
+
 console.log('10. Офлайн и ошибки');
 ok(external.length === 0, `внешних запросов нет (${external.length})`);
 ok(errors.length === 0, `ошибок в консоли нет${errors.length ? ': ' + errors.join(' | ') : ''}`);
