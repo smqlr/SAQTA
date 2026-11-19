@@ -7,6 +7,7 @@ import { mascotFace } from '../lib/mascot.js';
 import { openChat } from '../lib/chat.js';
 import { ART } from '../lib/art.js';
 import { ICON } from '../lib/icons.js';
+import { hscroll } from '../lib/ui.js';
 import { num, num1, esc } from '../lib/format.js';
 
 export function home() {}
@@ -87,6 +88,7 @@ export function render(el, st) {
     <p class="footnote center mt-16">SAQTA · пилот акимата Актобе · «Собери. Спроси. Спаси.»</p>
   </div>`;
 
+  hscroll(el.querySelector('.hscroll')); // «Что можно сдать»: ползунок, колесо, мягкий край
   el.onclick = (e) => {
     if (e.target.closest('[data-card-qr]')) { e.preventDefault(); openCardQr(); return; }
     if (e.target.closest('[data-chat]')) { openChat(); }

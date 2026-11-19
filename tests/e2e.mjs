@@ -87,6 +87,23 @@ ok((await page.textContent('.onb .dcard-name')).includes('АЙГЕРИМ') || (a
 await page.click('[data-onb="done"]');
 await page.waitForTimeout(200);
 ok(!(await page.$('.onb')) && (await page.textContent('#view')).includes('Айгерим'), 'главная: приветствие по имени');
+const tiles = () => page.$eval('.hscroll', (c) => ({
+  overflow: c.scrollWidth > c.clientWidth,
+  bar: getComputedStyle(c).scrollbarWidth,
+  hidden: getComputedStyle(c, '::-webkit-scrollbar').display === 'none',
+  l: c.classList.contains('more-l'), r: c.classList.contains('more-r'),
+  mask: getComputedStyle(c).maskImage || getComputedStyle(c).webkitMaskImage,
+  x: c.scrollLeft,
+}));
+const t0 = await tiles();
+ok(t0.overflow && t0.bar !== 'none' && !t0.hidden, `«Что можно сдать»: ряд прокручивается, ползунок виден (scrollbar-width: ${t0.bar})`);
+ok(t0.r && !t0.l && /gradient/.test(t0.mask), 'в начале ряда правый край плавно гаснет, левый — нет');
+await page.hover('.hscroll');
+await page.mouse.wheel(0, 2000);
+await page.waitForTimeout(300);
+const t1 = await tiles();
+ok(t1.x > 0 && t1.l && !t1.r, 'колесо докручивает ряд до конца: затухание слева, последняя плитка видна целиком');
+await page.$eval('.hscroll', (c) => { c.scrollLeft = 0; });
 
 console.log('1. Чистый старт');
 await reset('clean');

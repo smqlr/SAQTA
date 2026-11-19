@@ -49,3 +49,21 @@ export const demoMark = (text = 'пример') => `<span class="note-demo">${es
 export const simMark = (text = 'симуляция') => `<span class="note-demo note-sim">${esc(text)}</span>`;
 export const realMark = (text = 'настоящее') => `<span class="note-demo note-real">${esc(text)}</span>`;
 export const tbd = (text = 'уточняется') => `<em class="tbd">${esc(text)}</em>`;
+
+// Горизонтальный ряд (плитки, подтемы): колесо мыши крутит его вбок, а классы more-l / more-r
+// говорят, есть ли что листать слева и справа — по ним CSS плавно гасит край вместо острого среза.
+export function hscroll(node) {
+  if (!node) return;
+  const edges = () => {
+    const max = node.scrollWidth - node.clientWidth;
+    node.classList.toggle('more-l', node.scrollLeft > 2);
+    node.classList.toggle('more-r', max - node.scrollLeft > 2);
+  };
+  node.addEventListener('wheel', (e) => {
+    if (node.scrollWidth <= node.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    node.scrollLeft += e.deltaY;
+  }, { passive: false });
+  node.addEventListener('scroll', edges, { passive: true });
+  edges();
+}

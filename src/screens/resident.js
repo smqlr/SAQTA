@@ -15,7 +15,7 @@ import { getProfile, fmtCardId } from '../lib/donor.js';
 import { ICON } from '../lib/icons.js';
 import { qrSvg } from '../lib/qr.js';
 import { num, esc, dateTime } from '../lib/format.js';
-import { tagChip, demoMark, toast } from '../lib/ui.js';
+import { tagChip, demoMark, toast, hscroll } from '../lib/ui.js';
 import { openCert } from './wallet.js';
 
 // Локальное состояние потока (не сохраняется: это шаги одного действия)
@@ -434,15 +434,8 @@ function receipt(st) {
 
 // ── События ─────────────────────────────────────────────────────────────────
 function bind(el) {
-  // Ряд подтем: колесо мыши крутит его вбок (полоса-ползунок и свайп работают сами)
-  const cats = el.querySelector('.cats');
-  if (cats) {
-    cats.addEventListener('wheel', (e) => {
-      if (cats.scrollWidth <= cats.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      e.preventDefault();
-      cats.scrollLeft += e.deltaY;
-    }, { passive: false });
-  }
+  // Ряд подтем: колесо мыши крутит его вбок, края плавно гаснут (полоса-ползунок и свайп работают сами)
+  hscroll(el.querySelector('.cats'));
   el.onclick = (e) => {
     const t = e.target.closest('button, [data-go]');
     if (!t) return;
