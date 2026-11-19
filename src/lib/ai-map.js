@@ -45,3 +45,41 @@ export function topGroups(probs, n = 3) {
   const techness = out.reduce((s, g) => s + g.prob, 0);
   return { guesses: out.slice(0, n).filter((g) => g.prob >= 0.02), techness };
 }
+
+// Название или категория товара из базы (штрихкод) → вид техники SAQTA.
+// Порядок важен: сначала узкие слова («посудомоечная», «наушники», «часы»), потом широкие («машина», «телефон»).
+const WORDS = [
+  ['dishwasher', /dishwasher|посудомо/],
+  ['washer', /washing machine|washer|стиральн/],
+  ['microwave', /microwave|микроволн|свч/],
+  ['fridge', /refrigerator|fridge|freezer|холодильн|морозильн/],
+  ['stove', /\b(oven|stove|cooker|hob|range)\b|плит[аы]|духов/],
+  ['dryer', /hair ?dryer|(^|[^а-яё])фен([^а-яё]|$)/],
+  ['player', /headphone|earbud|earphone|headset|наушник|гарнитур|\bmp3\b|плеер/],
+  ['watch', /smart ?watch|\bwatch\b|fitness (band|tracker)|часы|фитнес-?браслет/],
+  ['console', /playstation|xbox|nintendo|game console|gamepad|joystick|приставк|джойстик|геймпад/],
+  ['tv', /\btv\b|television|телевизор|smart tv/],
+  ['monitor', /monitor|монитор|\bdisplay\b/],
+  ['laptop', /laptop|notebook|macbook|chromebook|ultrabook|ноутбук/],
+  ['pc', /desktop|all-in-one|\bpc\b|системный блок|моноблок|компьютер/],
+  ['phone', /smartphone|mobile phone|cell ?phone|\biphone\b|\bipad\b|tablet|смартфон|телефон|планшет|galaxy|redmi|xiaomi|honor|huawei|pixel/],
+  ['camera', /camera|camcorder|фотоаппарат|видеокамер|экшн-камер/],
+  ['speaker', /speaker|soundbar|radio|колонк|саундбар|радио/],
+  ['router', /router|modem|wi-?fi|access point|роутер|маршрутизатор|модем/],
+  ['peripheral', /keyboard|\bmouse\b|клавиатур|(^|[^а-яё])мыш/],
+  ['printer', /printer|scanner|mfp|принтер|сканер|(^|[^а-яё])мфу([^а-яё]|$)/],
+  ['projector', /projector|проектор/],
+  ['disk', /hard drive|\bssd\b|\bhdd\b|flash drive|usb drive|memory card|жёстк|жестк|флешк|накопител/],
+  ['vacuum', /vacuum|пылесос/],
+  ['kettle', /kettle|coffee|espresso|toaster|blender|mixer|juicer|multicooker|чайник|кофе|тостер|блендер|миксер|мультивар/],
+  ['iron', /\biron\b|steamer|утюг|отпаривател/],
+  ['heater', /\bfan\b|heater|air purifier|humidifier|вентилятор|обогреват|увлажнител/],
+  ['tool', /drill|screwdriver|grinder|\bsaw\b|power tool|дрель|шуруповёрт|шуруповерт|болгарк|перфоратор/],
+  ['lamp', /\blamp\b|light bulb|lighting|светильник|ламп/],
+];
+export function groupFromText(...parts) {
+  const t = parts.filter(Boolean).join(' ').toLowerCase();
+  if (!t) return null;
+  for (const [id, re] of WORDS) if (re.test(t)) return id;
+  return null;
+}

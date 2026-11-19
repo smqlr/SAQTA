@@ -9,7 +9,7 @@ import { addressField, bindAddress } from '../lib/addr-ui.js';
 import { getState, submitDonation, residentPickupDone, suggestTag, donationsThisMonth, selectHubItem } from '../store.js';
 import { ART } from '../lib/art.js';
 import { GROUPS } from '../lib/ai-map.js';
-import { recognize } from '../lib/ai.js';
+import { recognize, recognizeBarcode } from '../lib/ai.js';
 import { mascot } from '../lib/mascot.js';
 import { getProfile, fmtCardId } from '../lib/donor.js';
 import { ICON } from '../lib/icons.js';
@@ -20,7 +20,7 @@ import { openCert } from './wallet.js';
 
 // Локальное состояние потока (не сохраняется: это шаги одного действия)
 let cat = CATEGORIES[0].id; // выбранная подтема — переживает возврат на старт
-const fresh = () => ({ step: 'start', exampleId: null, manual: null, photoUrl: null, ai: null, method: null, pointId: null, receiptId: null, tab: 'school', all: false, fitted: '', pick: { q: null, addr: null, day: 1, time: 0 } });
+const fresh = () => ({ step: 'start', exampleId: null, manual: null, photoUrl: null, photoFile: null, ai: null, method: null, pointId: null, receiptId: null, tab: 'school', all: false, fitted: '', pick: { q: null, addr: null, day: 1, time: 0 } });
 let me = null; // где житель (если разрешил геолокацию); иначе расстояния — от центра города
 let prefer = null; // пункт, выбранный на вкладке «Карта» кнопкой «Сдать сюда»
 
@@ -139,6 +139,7 @@ function photo() {
     return `${head}
     <img class="photo-prev mt-12" src="${ui.photoUrl}" alt="Твоё фото">
     <div class="notice warn mt-12"><div class="ico">${ICON.info}</div><div class="small"><b>${a.status === 'error' ? 'ИИ сейчас недоступен.' : 'Не похоже на технику, которую я знаю.'}</b><br>Выбери похожую вещь в каталоге или введи модель — мастер в хабе всё проверит при приёмке.</div></div>
+    ${a.status === 'error' ? '' : barcodeBox(a)}
     <h2 class="h-sec">Похожая вещь</h2>
     ${examplesGrid()}
     <button class="btn ghost block mt-16" data-go="manual">${ICON.edit} Ввести модель вручную</button>`;
@@ -150,19 +151,70 @@ function photo() {
   const g = r.guesses.find((x) => x.id === a.pick) || top;
   return `${head}
   <div class="scan mt-12"><img src="${ui.photoUrl}" alt="Твоё фото"></div>
-  <div class="row mt-12" style="gap:8px"><span class="ai-badge">${ICON.check}${r.engine === 'claude' ? 'Claude' : 'ИИ в телефоне'}</span><span class="xs muted">${r.engine === 'claude' ? 'распознал модель и поломки' : 'узнаёт вид техники, без интернета'}</span></div>
+  <div class="row mt-12" style="gap:8px">${aiBadge(r, top)}</div>
   <div class="section-label mt-16">Похоже на</div>
   <div class="guess">${r.guesses.map((x) => `<button class="guess-i" data-guess="${x.id}" aria-pressed="${x.id === a.pick}">
       <span class="dev-ph">${ART[x.art] ? ART[x.art](x.label) : ICON.box}</span>
-      <span class="grow"><b>${esc(x.model || x.label)}</b><span class="conf">${Math.round(x.prob * 100)}% · ${esc(DEVICE_TYPES[x.type].label)}</span><span class="bar"><i style="width:${Math.max(4, Math.round(x.prob * 100))}%"></i></span></span>
+      <span class="grow"><b>${esc(x.model || x.label)}</b><span class="conf">${x.via === 'barcode' ? `штрихкод ${esc(x.code)}` : `${Math.round(x.prob * 100)}%`} · ${esc(DEVICE_TYPES[x.type].label)}</span><span class="bar"><i style="width:${Math.max(4, Math.round(x.prob * 100))}%"></i></span></span>
     </button>`).join('')}</div>
+  ${foundInfo(g)}
   ${g.damage?.length ? `<p class="small mt-12"><b>Видно на фото:</b> ${esc(g.damage.join(', '))}</p>` : ''}
   <div class="section-label mt-16">Что с вещью?</div>
   <div class="chips">${CONDITIONS.filter((c) => c.id !== 'other').map((c) => `<button class="chip" data-cond="${c.id}" aria-pressed="${a.cond === c.id}">${c.label}</button>`).join('')}</div>
   <div class="field mt-16"><label for="aiModel">Модель, если знаешь</label><input class="input" id="aiModel" maxlength="60" placeholder="${esc(g.type === 'phone' ? 'Например, Samsung Galaxy A50' : g.type === 'laptop' ? 'Например, Lenovo IdeaPad 330' : 'Можно оставить пустым')}" value="${esc(a.model ?? g.model ?? '')}"></div>
   <p class="error mt-8" id="condErr" hidden>Выбери, что с вещью — так точнее бирка</p>
   <button class="btn primary lg block mt-16" data-ai-next>Дальше</button>
-  <button class="btn plain block mt-8" data-go="start">Не то — выбрать из каталога</button>`;
+  <button class="btn plain block mt-8" data-go="start">Не то — выбрать из каталога</button>
+  ${r.engine === 'barcode' ? '' : barcodeBox(a)}`;
+}
+
+// Кто распознал: Claude с поиском по магазинам, открытые базы по штрихкоду или ИИ в телефоне
+function aiBadge(r, top) {
+  const [name, note] = r.engine === 'claude'
+    ? (r.searched || top.sources?.length ? ['Claude + магазины', 'нашёл модель в магазинах и каталогах'] : ['Claude', 'распознал модель и поломки'])
+    : r.engine === 'barcode' ? ['По штрихкоду', `код ${r.barcode} найден в открытых базах товаров`]
+      : ['ИИ в телефоне', 'узнаёт вид техники, без интернета'];
+  return `<span class="ai-badge" data-testid="ai-engine">${ICON.check}${name}</span><span class="xs muted">${esc(note)}</span>`;
+}
+
+// Что нашлось в магазинах и базах: год, характеристики, цены (только для показа — бонусы считаются по документации) и ссылки
+function foundInfo(g) {
+  const specs = [g.year ? `вышел в ${g.year}` : '', ...(g.specs || [])].filter(Boolean);
+  const price = [g.price?.new ? `новый — ${g.price.new}` : '', g.price?.used ? `б/у — ${g.price.used}` : ''].filter(Boolean);
+  const src = g.sources || [];
+  if (!specs.length && !price.length && !src.length) return '';
+  return `<div class="found mt-12" data-testid="found">
+    ${specs.length ? `<div class="small">${specs.map(esc).join(' · ')}</div>` : ''}
+    ${price.length ? `<div class="small mt-4">Цена по данным магазинов: ${price.map(esc).join(', ')}</div>` : ''}
+    ${src.length ? `<div class="xs muted${specs.length || price.length ? ' mt-8' : ''}">Источники</div><div class="src-list">${src.map((x) => `<a class="src" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer" title="${esc(x.title)}">${ICON.external}<span>${esc(x.host || x.title)}</span>${x.price ? `<em>${esc(x.price)}</em>` : ''}</a>`).join('')}</div>` : ''}
+  </div>`;
+}
+
+// Цифры под штрихкодом: точная модель по открытым базам товаров (с сервером — Claude ищет по коду в магазинах)
+function barcodeBox(a) {
+  const seen = a.result?.barcode;
+  return `<form class="bc-box mt-16" id="bcForm" novalidate>
+    <div class="row" style="gap:10px;align-items:flex-start"><span class="bc-ico">${ICON.scan}</span><div class="grow"><b>Есть штрихкод?</b>
+      <div class="xs muted">${seen ? `На фото штрихкод ${esc(seen)}, но в открытых базах его нет. Проверь цифры или введи другой код.` : 'Введи цифры под штрихкодом с коробки или наклейки — найду точную модель в открытых базах товаров и магазинах. Нужен интернет.'}</div></div></div>
+    <div class="row mt-8" style="gap:8px"><input class="input grow" id="bcIn" name="code" inputmode="numeric" autocomplete="off" maxlength="18" placeholder="Например, 4006381333931" value="${esc(a.bcCode ?? seen ?? '')}" aria-label="Цифры штрихкода"><button class="btn primary" type="submit" data-bc>${ICON.search} Найти</button></div>
+    <p class="error mt-8" id="bcErr" ${a.bcErr ? '' : 'hidden'}>${esc(a.bcErr || '')}</p>
+  </form>`;
+}
+
+const BC_ERR = {
+  code: 'Проверь цифры: у штрихкода 8, 12 или 13 цифр, и последняя — контрольная.',
+  notfound: (code) => `Кода ${code} нет в открытых базах. Введи модель вручную — мастер в хабе проверит при приёмке.`,
+  net: 'Нет связи с базами товаров. Проверь интернет.',
+};
+async function runBarcode(el, raw) {
+  const btn = el.querySelector('#bcForm [data-bc]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Ищу…'; }
+  const prev = ui.ai?.result || null;
+  const r = await recognizeBarcode(ui.photoFile, raw, prev).catch(() => ({ error: 'net' }));
+  if (ui.step !== 'photo') return;
+  if (r.error) ui.ai = { ...(ui.ai || {}), bcCode: raw, bcErr: r.error === 'notfound' ? BC_ERR.notfound(r.code) : BC_ERR[r.error] };
+  else ui.ai = { status: 'done', result: r, pick: null, cond: ui.ai?.cond || r.guesses?.[0]?.condition || null };
+  render(el, getState());
 }
 
 async function runRecognition(el, file) {
@@ -214,7 +266,7 @@ function card(st) {
     <div class="row" style="align-items:flex-start;gap:14px">
       <div class="dev-ph">${ART[d.art] ? ART[d.art](d.model) : ICON.box}</div>
       <div class="grow stack" style="gap:6px">
-        <div class="row wrap" style="gap:8px">${tagChip(d.tag)}${d.isExample ? demoMark('пример') : ''}${d.ai ? `<span class="ai-badge">${ICON.check}${d.ai === 'claude' ? 'Claude' : 'ИИ'}</span>` : ''}</div>
+        <div class="row wrap" style="gap:8px">${tagChip(d.tag)}${d.isExample ? demoMark('пример') : ''}${d.ai ? `<span class="ai-badge">${ICON.check}${d.ai === 'claude' ? 'Claude' : d.ai === 'barcode' ? 'Штрихкод' : 'ИИ'}</span>` : ''}</div>
         <h2>${esc(d.model)}</h2>
         <div class="muted small">${esc(d.state)} · ${DEVICE_TYPES[d.type].label}</div>
       </div>
@@ -529,10 +581,13 @@ function bind(el) {
       if (ui.photoUrl) URL.revokeObjectURL(ui.photoUrl);
       const file = e.target.files[0];
       ui.photoUrl = URL.createObjectURL(file);
+      ui.photoFile = file;
       ui.step = 'photo';
       runRecognition(el, file);
     }
   };
+  const bcForm = el.querySelector('#bcForm');
+  if (bcForm) bcForm.onsubmit = (e) => { e.preventDefault(); runBarcode(el, el.querySelector('#bcIn').value); };
   const form = el.querySelector('#manualForm');
   if (form) {
     form.onsubmit = (e) => {

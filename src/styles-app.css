@@ -194,8 +194,22 @@ img.art { display: block; width: 100%; height: 100%; object-fit: contain; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border: 0; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); border-radius: 999px; padding: 9px 14px; font-weight: 600; font-size: 14px; color: var(--text); }
 .chip[aria-pressed="true"] { background: var(--text); color: #fff; box-shadow: none; }
-.ai-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--brand); background: var(--brand-soft); padding: 4px 9px; border-radius: 999px; }
+.ai-badge { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--brand); background: var(--brand-soft); padding: 4px 9px; border-radius: 999px; }
 .ai-badge svg { width: 14px; height: 14px; }
+.mt-4 { margin-top: 4px; }
+/* Что нашлось в магазинах и открытых базах: характеристики, цены, ссылки на источники */
+.found { background: var(--surface); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow-1); overflow-wrap: anywhere; }
+.src-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.src { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 5px 10px; border-radius: 999px; background: var(--fill); color: var(--text); text-decoration: none; font-size: 13px; font-weight: 600; }
+.src svg { width: 13px; height: 13px; flex: none; color: var(--muted); }
+.src span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src em { font-style: normal; font-weight: 500; color: var(--muted); }
+.src:hover { background: var(--fill-2); }
+/* Штрихкод вручную */
+.bc-box { background: var(--surface); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow-1); }
+.bc-ico { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); flex: none; }
+.bc-ico svg { width: 18px; height: 18px; }
+.bc-box .input { min-width: 0; }
 
 /* ── Профиль ────────────────────────────────────────────────────────────── */
 .prof-head { display: flex; align-items: center; gap: 14px; margin: 4px 2px 18px; }

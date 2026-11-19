@@ -5,6 +5,9 @@ import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-cpu';
 import { loadGraphModel } from '@tensorflow/tfjs-converter';
 import MODEL from './mobilenet.json';
+// Чтение штрихкодов (EAN/UPC) с фото: ZXing в WebAssembly. Сам wasm передаётся снаружи (ai/zxing_reader.wasm
+// на Pages или внутри офлайн-файла), поэтому в CDN модуль не ходит.
+import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
 
 let model = null;
 
@@ -37,4 +40,16 @@ async function classify(source) {
   return data;
 }
 
-window.SAQTA_AI = { load, classify, backend: () => tf.getBackend() };
+let zxing = null;
+function loadBarcode(wasmBinary) {
+  if (!zxing) zxing = prepareZXingModule({ overrides: { wasmBinary }, fireImmediately: true });
+  return zxing;
+}
+
+// Фото → коды EAN/UPC (товарные штрихкоды с коробки или наклейки)
+async function barcodes(blob) {
+  const found = await readBarcodes(blob, { formats: ['EANUPC'], tryHarder: true, tryRotate: true, tryInvert: true, maxNumberOfSymbols: 2 });
+  return found.filter((r) => r.isValid && /^\d{8,14}$/.test(r.text)).map((r) => r.text);
+}
+
+window.SAQTA_AI = { load, classify, backend: () => tf.getBackend(), loadBarcode, barcodes };

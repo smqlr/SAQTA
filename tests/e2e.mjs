@@ -493,6 +493,106 @@ await page.click('[data-cond="dead"]');
 await page.click('[data-ai-next]');
 ok((await page.textContent('#view')).includes('Что будет с вещью'), 'после фото — карточка и путь вещи');
 
+console.log('9е2. Штрихкод → открытые базы товаров, сервер → магазины');
+// Открытые базы и сервер подменены заготовками (CORS как у настоящих API); остальная сеть по-прежнему закрыта
+const PHONE_EAN = '8806090312014';
+const looked = [];
+const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'GET, POST, OPTIONS' };
+await ctx.route('https://api.upcitemdb.com/**', (r) => {
+  const code = new URL(r.request().url()).searchParams.get('upc');
+  looked.push(`upc:${code}`);
+  const items = code === PHONE_EAN ? [{
+    ean: PHONE_EAN, title: 'Samsung Galaxy A50 SM-A505F 64GB Smartphone', brand: 'Samsung', model: 'SM-A505F',
+    category: 'Electronics > Communications > Telephony > Mobile Phones',
+    offers: [
+      { merchant: 'Amazon.com', domain: 'amazon.com', price: 199.99, currency: 'USD', link: 'https://www.upcitemdb.com/norob/alink/?id=a1' },
+      { merchant: 'eBay', domain: 'ebay.com', price: 120, currency: 'USD', link: 'https://www.upcitemdb.com/norob/alink/?id=e1' },
+    ],
+  }] : [];
+  return r.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ code: 'OK', total: items.length, items }) });
+});
+await ctx.route('https://world.openproductsfacts.org/**', (r) => {
+  looked.push('opf');
+  return r.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ status: 0, status_verbose: 'product not found' }) });
+});
+// Картинка штрихкода EAN-13 на белом фоне, как на коробке
+const ean13 = (code) => {
+  const L = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011'];
+  const G = L.map((p) => [...p].reverse().map((b) => (b === '0' ? '1' : '0')).join(''));
+  const R = L.map((p) => [...p].map((b) => (b === '0' ? '1' : '0')).join(''));
+  const PAR = ['LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG', 'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL'];
+  const d = [...code].map(Number);
+  let bits = '101';
+  for (let i = 1; i <= 6; i++) bits += (PAR[d[0]][i - 1] === 'L' ? L : G)[d[i]];
+  bits += '01010';
+  for (let i = 7; i <= 12; i++) bits += R[d[i]];
+  return bits + '101';
+};
+const barcodePng = Buffer.from((await page.evaluate((bits) => {
+  const k = 4, quiet = 14 * k;
+  const c = document.createElement('canvas');
+  c.width = bits.length * k + quiet * 2; c.height = 240;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#000';
+  [...bits].forEach((b, i) => { if (b === '1') g.fillRect(quiet + i * k, 30, k, 180); });
+  return c.toDataURL('image/png');
+}, ean13(PHONE_EAN))).split(',')[1], 'base64');
+await go('resident');
+if (!(await page.$('#photoInput'))) await page.click('[data-go="start"]');
+await page.setInputFiles('#photoInput', { name: 'box.png', mimeType: 'image/png', buffer: barcodePng });
+await page.waitForSelector('.guess-i, .notice.warn', { timeout: 90000 });
+ok((await page.textContent('[data-testid="ai-engine"]').catch(() => '')).includes('По штрихкоду'), 'штрихкод прочитан прямо на фото (ZXing в телефоне)');
+ok(looked.includes(`upc:${PHONE_EAN}`) && looked.includes('opf'), 'код проверен в двух открытых базах: UPCitemdb и Open Products Facts');
+const bcTop = norm(await page.textContent('.guess-i[aria-pressed="true"]'));
+ok(bcTop.includes('Samsung Galaxy A50') && bcTop.includes(`штрихкод ${PHONE_EAN}`) && bcTop.includes('Телефон'), `модель из базы: ${bcTop.replace(/\s+/g, ' ').trim().slice(0, 60)}`);
+const bcFound = norm(await page.textContent('[data-testid="found"]'));
+ok(bcFound.includes('upcitemdb.com') && bcFound.includes('amazon.com') && bcFound.includes('199.99 USD'), 'источники: база и магазины с ценами');
+ok((await page.getAttribute('[data-testid="found"] a.src', 'target')) === '_blank', 'ссылки на источники открываются в новой вкладке');
+ok((await page.inputValue('#aiModel')).includes('Galaxy A50'), 'модель подставлена в поле «Модель»');
+await shot('09e-barcode');
+
+// Цифры вручную: ошибка в контрольной цифре, неизвестный код, верный код
+await page.click('[data-go="start"]');
+await page.setInputFiles('#photoInput', join(root, 'src/assets/photos/kettle.webp'));
+await page.waitForSelector('.guess-i, .notice.warn', { timeout: 90000 });
+await page.fill('#bcIn', '8806090312015');
+await page.click('#bcForm [data-bc]');
+await page.waitForTimeout(200);
+ok(!(await page.isHidden('#bcErr')) && (await page.textContent('#bcErr')).includes('Проверь цифры'), 'неверная контрольная цифра — подсказка, без запроса в базы');
+await page.fill('#bcIn', '4006381333931');
+await page.click('#bcForm [data-bc]');
+await page.waitForFunction(() => document.querySelector('#bcErr')?.textContent.includes('нет в открытых базах'), null, { timeout: 10000 }).catch(() => {});
+ok((await page.textContent('#bcErr')).includes('нет в открытых базах'), 'неизвестный код — честно: в базах нет, можно ввести модель');
+await page.fill('#bcIn', '8806 0903 1201 4');
+await page.click('#bcForm [data-bc]');
+await page.waitForFunction(() => document.querySelector('[data-testid="ai-engine"]')?.textContent.includes('По штрихкоду'), null, { timeout: 10000 });
+ok(norm(await page.textContent('.guess')).includes('Samsung Galaxy A50'), 'введённый вручную код найден: Samsung Galaxy A50');
+
+// Сервер с Claude: поиск по магазинам и источники
+const API = 'https://saqta-ai.test.workers.dev';
+let sent = null;
+await ctx.route(`${API}/**`, async (r) => {
+  if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: cors });
+  sent = JSON.parse(r.request().postData() || '{}');
+  return r.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({
+    group: 'phone', type: 'phone', label: 'Смартфон', model: 'Samsung Galaxy A50 (SM-A505F)', year: '2019',
+    specs: ['Экран 6,4″ Super AMOLED', '4 ГБ / 64 ГБ'], price: { new: '', used: '45 000 ₸' }, condition: 'dead', damage: [], parts: ['экран'],
+    sources: [{ title: 'Kaspi', url: 'https://kaspi.kz/shop/p/samsung-galaxy-a50-100000001/', host: 'kaspi.kz' }, { title: 'GSMArena', url: 'https://www.gsmarena.com/samsung_galaxy_a50-9554.php', host: 'gsmarena.com' }],
+    searched: true, confidence: 0.93,
+  }) });
+});
+await page.evaluate((u) => localStorage.setItem('saqta-api', u), API);
+await page.click('[data-go="start"]');
+await page.setInputFiles('#photoInput', join(root, 'src/assets/photos/phone.webp'));
+await page.waitForSelector('.guess-i, .notice.warn', { timeout: 90000 });
+ok(sent && typeof sent.image === 'string' && sent.image.length > 1000, 'фото ушло на сервер SAQTA');
+ok((await page.textContent('[data-testid="ai-engine"]')).includes('Claude + магазины'), 'бейдж: Claude + магазины');
+const srvFound = norm(await page.textContent('[data-testid="found"]'));
+ok(srvFound.includes('вышел в 2019') && srvFound.includes('б/у — 45 000 ₸') && srvFound.includes('kaspi.kz') && srvFound.includes('gsmarena.com'), 'год, цена по данным магазинов и источники Kaspi и GSMArena');
+await shot('09e-claude');
+await page.evaluate(() => localStorage.removeItem('saqta-api'));
+
 console.log('9ж. Этап 2: SAQTA Доктор по ссылке');
 const pass = readFileSync(join(root, 'tests/fixtures/doctor-passport.json'), 'utf8').trim();
 const b64 = Buffer.from(pass, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

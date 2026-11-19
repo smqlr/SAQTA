@@ -1,10 +1,10 @@
 // Сервер SAQTA для Claude (Cloudflare Worker). Ключ API хранится только здесь, в секрете ANTHROPIC_API_KEY,
 // и никогда не попадает в код страницы. Два адреса:
 //   POST /chat       { messages: [{ role, content }] }        → { text }   — помощник Сактик
-//   POST /recognize  { image: base64, mediaType }             → { group, type, label, model, condition, damage, parts, confidence }
+//   POST /recognize  { image: base64, mediaType, barcode? }   → { group, type, label, model, year, specs, price, condition,
+//                                                                 damage, parts, sources, confidence } — с поиском по магазинам
 import Anthropic from '@anthropic-ai/sdk';
-
-const MODEL = 'claude-opus-5-5';
+import { recognize, RecognizeError, MODEL } from './recognize.js';
 
 const SYSTEM_CHAT = `Ты — Сактик, помощник приложения SAQTA (Актобе, Казахстан). SAQTA («сақта» — «сохрани») забирает старую технику там, где она лежит, проверяет её в хабе и даёт вторую жизнь: целиком, на детали или в переработку.
 Отвечай по-русски (если спросили по-казахски — по-казахски), коротко, дружелюбно, на «ты», 2–6 предложений. Только про технику, электронные отходы, безопасность и приложение SAQTA. На другие темы мягко возвращай к технике.
@@ -19,11 +19,6 @@ const SYSTEM_CHAT = `Ты — Сактик, помощник приложени�
 - В хабе: сортировка за 45 секунд (бирки Целое, Донор, Опасно, Сырьё), детали снимают только под заказ мастерских, QR-паспорт и гарантия 30 дней, стенд ТЕСТ-30 проверяет 16 ячеек 18650 за 30 секунд. Сами не перерабатываем: сырьё отгружаем лицензированным переработчикам.
 - Город: около 4 000 т электроотходов в год, перерабатывается 20%. Пилот (январь–июнь 2027) уберёт около 230 т.
 Если не знаешь — честно скажи и предложи спросить на горячей линии.`;
-
-const GROUPS = 'phone, pda, laptop, pc, monitor, tv, fridge, washer, dishwasher, stove, microwave, kettle, iron, vacuum, dryer, heater, speaker, player, watch, camera, console, remote, router, peripheral, printer, projector, disk, tool, lamp';
-const SYSTEM_VISION = `Ты распознаёшь технику на фото для пункта приёма SAQTA. Ответь ТОЛЬКО одним JSON-объектом без пояснений:
-{"group": одно из [${GROUPS}], "type": "phone"|"laptop"|"screen"|"small"|"cable"|"big", "label": "вид техники по-русски", "model": "бренд и модель, если видно, иначе пустая строка", "condition": "works"|"dead"|"broken"|"swollen"|null, "damage": ["видимые повреждения по-русски"], "parts": ["детали, которые обычно можно снять с такой вещи"], "confidence": число 0..1}
-type: phone — телефоны и планшеты, laptop — ноутбуки и компьютеры, screen — мониторы и ТВ, big — холодильник, стиральная или посудомоечная машина, плита, кондиционер, cable — зарядки и кабели, small — всё остальное. Если на фото не техника — group "", confidence 0.`;
 
 const json = (o, status, headers) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...headers } });
 const textOf = (r) => r.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
@@ -54,27 +49,13 @@ export default {
         return json({ text: textOf(r) }, 200, cors);
       }
       if (pathname === '/recognize') {
-        if (typeof body.image !== 'string' || !body.image || body.image.length > 6000000) return json({ error: 'image' }, 400, cors);
-        const r = await client.messages.create({
-          model,
-          max_tokens: 1024,
-          system: SYSTEM_VISION,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: body.mediaType === 'image/png' ? 'image/png' : 'image/jpeg', data: body.image } },
-              { type: 'text', text: 'Что это за вещь и в каком она состоянии? Ответь JSON.' },
-            ],
-          }],
-        });
-        const m = textOf(r).match(/\{[\s\S]*\}/);
-        let out = null;
-        try { out = m ? JSON.parse(m[0]) : null; } catch { out = null; }
-        if (!out || !out.group) return json({ error: 'not recognized' }, 422, cors);
+        // Фото (+ штрихкод, если телефон его прочитал) → Claude ищет модель в магазинах → JSON с источниками
+        const out = await recognize(client, { image: body.image, mediaType: body.mediaType, barcode: body.barcode, model });
         return json(out, 200, cors);
       }
       return json({ error: 'not found' }, 404, cors);
     } catch (e) {
+      if (e instanceof RecognizeError) return json({ error: e.code }, e.code === 'image' ? 400 : 422, cors);
       return json({ error: 'server' }, 502, cors);
     }
   },

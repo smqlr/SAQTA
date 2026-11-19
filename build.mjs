@@ -46,6 +46,8 @@ const ai = await build({
 });
 const aiJs = ai.outputFiles[0].text;
 const aiWeights = await readFile(join(root, 'src/ai/mobilenet.bin'));
+// Штрихкоды: wasm ZXing (только чтение), рядом с движком ИИ
+const zxingWasm = await readFile(join(root, 'node_modules/zxing-wasm/dist/reader/zxing_reader.wasm'));
 
 // Вставляем через функции-замены, чтобы символы `$` в коде не трактовались как шаблоны замены
 const jsCode = js.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
@@ -54,7 +56,7 @@ const html = tpl
   .replace('/*__CSS__*/', () => css)
   .replace('/*__JS__*/', () => jsCode);
 // Офлайн-файл: движок и веса ИИ внутри (text/plain — браузер их не исполняет, пока житель не сфотографирует вещь)
-const inlineAi = `<script type="text/plain" id="saqta-ai-js">${aiJs.replace(/<\/script/gi, '<\\/script')}</script>\n<script type="text/plain" id="saqta-ai-w">${aiWeights.toString('base64')}</script>\n`;
+const inlineAi = `<script type="text/plain" id="saqta-ai-js">${aiJs.replace(/<\/script/gi, '<\\/script')}</script>\n<script type="text/plain" id="saqta-ai-w">${aiWeights.toString('base64')}</script>\n<script type="text/plain" id="saqta-bc-w">${zxingWasm.toString('base64')}</script>\n`;
 const offline = html.replace('</body>', () => `${inlineAi}</body>`);
 
 const outFile = join(root, 'dist', `${APP_FILE}.html`);
@@ -64,6 +66,7 @@ await writeFile(outFile, offline);
 await writeFile(join(root, 'docs', 'index.html'), html);
 await writeFile(join(root, 'docs', 'ai', 'engine.js'), aiJs);
 await writeFile(join(root, 'docs', 'ai', 'mobilenet.bin'), aiWeights);
+await writeFile(join(root, 'docs', 'ai', 'zxing_reader.wasm'), zxingWasm);
 
 // PWA только для версии на GitHub Pages (на file:// main.js их не подключает)
 const version = createHash('sha1').update(html).digest('hex').slice(0, 10);
