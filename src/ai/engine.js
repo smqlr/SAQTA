@@ -37,4 +37,4 @@ async function classify(source) {
   return data;
 }
 
-window.QAITA_AI = { load, classify, backend: () => tf.getBackend() };
+window.SAQTA_AI = { load, classify, backend: () => tf.getBackend() };

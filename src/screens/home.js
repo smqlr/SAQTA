@@ -56,7 +56,7 @@ export function render(el, st) {
 
     ${st.tazaru
       ? `<a class="banner" href="#resident"><span class="b-ico">${ICON.sun}</span><div><b>Неделя Тазару күні</b><span>Бонусы × 2 за любую сданную вещь</span></div></a>`
-      : `<button class="banner mascot" data-chat><span class="m-face">${mascotFace('talk')}</span><div><b>Спроси Кайтика</b><span>Куда сдать, как стереть данные, сколько бонусов — отвечу на любой вопрос</span></div></button>`}
+      : `<button class="banner mascot" data-chat><span class="m-face">${mascotFace('talk')}</span><div><b>Спроси Сактика</b><span>Куда сдать, как стереть данные, сколько бонусов — отвечу на любой вопрос</span></div></button>`}
 
     <h2 class="h-sec">Рядом с тобой <a href="#points">Все на карте</a></h2>
     ${near.map((p) => `<a class="pt-row" href="#points/${p.id}">
@@ -84,7 +84,7 @@ export function render(el, st) {
       <div class="how-i"><span class="n">2</span><div><b>Сдай рядом</b><span>${SCHOOL_LEAGUE.schools} школ и ${SCHOOL_LEAGUE.boxes} боксов. Крупную технику заберём из дома</span></div></div>
       <div class="how-i"><span class="n">3</span><div><b>Получи бонусы</b><span>После проверки в хабе. Вывод на карту любого банка от ${num(WALLET.withdrawMin)}</span></div></div>
     </div>
-    <p class="footnote center mt-16">QAITA · пилот акимата Актобе · «Собери. Спроси. Спаси.»</p>
+    <p class="footnote center mt-16">SAQTA · пилот акимата Актобе · «Собери. Спроси. Спаси.»</p>
   </div>`;
 
   el.onclick = (e) => {

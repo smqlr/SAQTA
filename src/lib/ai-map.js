@@ -1,4 +1,4 @@
-// Классы ImageNet (MobileNet) → виды техники QAITA. Индексы — без «фона» (0…999).
+// Классы ImageNet (MobileNet) → виды техники SAQTA. Индексы — без «фона» (0…999).
 // type — вид техники для бонусов (DEVICE_TYPES), art — фото/рисунок, cat — подтема каталога.
 export const GROUPS = {
   phone: { label: 'Телефон', type: 'phone', art: 'phone', cat: 'digital', ids: [487, 707, 528] },

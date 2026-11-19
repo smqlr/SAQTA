@@ -54,7 +54,7 @@ const html = tpl
   .replace('/*__CSS__*/', () => css)
   .replace('/*__JS__*/', () => jsCode);
 // Офлайн-файл: движок и веса ИИ внутри (text/plain — браузер их не исполняет, пока житель не сфотографирует вещь)
-const inlineAi = `<script type="text/plain" id="qaita-ai-js">${aiJs.replace(/<\/script/gi, '<\\/script')}</script>\n<script type="text/plain" id="qaita-ai-w">${aiWeights.toString('base64')}</script>\n`;
+const inlineAi = `<script type="text/plain" id="saqta-ai-js">${aiJs.replace(/<\/script/gi, '<\\/script')}</script>\n<script type="text/plain" id="saqta-ai-w">${aiWeights.toString('base64')}</script>\n`;
 const offline = html.replace('</body>', () => `${inlineAi}</body>`);
 
 const outFile = join(root, 'dist', `${APP_FILE}.html`);

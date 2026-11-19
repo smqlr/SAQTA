@@ -74,9 +74,9 @@ const reset = async (preset) => {
 
 await page.goto(FILE);
 
-console.log('0. Знакомство с Кайтиком и карта донора');
+console.log('0. Знакомство с Сактиком и карта донора');
 await page.waitForSelector('.onb');
-ok(await page.isVisible('.onb .m-body'), 'обучение ведёт Кайтик');
+ok(await page.isVisible('.onb .m-body'), 'обучение ведёт Сактик');
 for (let i = 0; i < 4; i++) await page.click('[data-onb="next"]');
 await page.fill('#onbName', 'Айгерим');
 await page.click('[data-onb="issue"]');
@@ -175,7 +175,7 @@ const liiCells = await page.$$eval('.cells .cell', (els) => els.filter((e) => e.
 ok(disputed > 0 && liiCells === disputed, `ТЕСТ-30: спорных ${disputed} — у них ёмкость неизвестна, идут на Lii-500`);
 ok((await page.textContent('#test30')).includes('не ёмкость'), 'ТЕСТ-30 честно пишет: импульс меряет не ёмкость');
 const doctorLine = (await page.textContent('[data-testid="doctor-line"]')).replace(/[\u00a0\u202f]/g, ' ');
-ok(doctorLine.includes('204 ₸') && doctorLine.includes('запускаем') && doctorLine.includes('222 ₸'), 'ноутбук: QAITA Доктор окупается — ЦП 204 ₸ > 60 ₸, пакет с чипом 222 ₸');
+ok(doctorLine.includes('204 ₸') && doctorLine.includes('запускаем') && doctorLine.includes('222 ₸'), 'ноутбук: SAQTA Доктор окупается — ЦП 204 ₸ > 60 ₸, пакет с чипом 222 ₸');
 ok(await page.isVisible('#t30chart'), 'кривые напряжения нарисованы');
 await shot('03-hub');
 await page.click('button:has-text("Детали проданы")');
@@ -453,7 +453,7 @@ const lotW = norm(await page.textContent('[data-testid="lots"] .passport'));
 ok(lotW.includes('P-0001') && lotW.includes('UN3481') && lotW.includes('РОП'), 'партия «Целиком переработчику»: паспорт с UN3481 и категориями РОП');
 await shot('09-wall');
 
-console.log('9д. Помощник Кайтик');
+console.log('9д. Помощник Сактик');
 await go('home');
 await page.click('#askBtn');
 await page.fill('#chatIn', 'Куда сдать холодильник?');
@@ -476,7 +476,7 @@ await page.click('[data-cond="dead"]');
 await page.click('[data-ai-next]');
 ok((await page.textContent('#view')).includes('Что будет с вещью'), 'после фото — карточка и путь вещи');
 
-console.log('9ж. Этап 2: QAITA Доктор по ссылке');
+console.log('9ж. Этап 2: SAQTA Доктор по ссылке');
 const pass = readFileSync(join(root, 'tests/fixtures/doctor-passport.json'), 'utf8').trim();
 const b64 = Buffer.from(pass, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 await page.goto(`${FILE}#hub/doctor=${b64}`);
@@ -486,12 +486,12 @@ const passObj = JSON.parse(pass);
 const sohWant = `${Math.round((passObj.battery.full / passObj.battery.design) * 100)}%`;
 ok((await page.textContent('[data-testid="soh"]')).trim() === sohWant, `паспорт: здоровье батареи ${sohWant} (${passObj.battery.full} из ${passObj.battery.design} мА·ч)`);
 const askText = await page.textContent('[data-testid="ask"]');
-ok(askText.includes('прочитано QAITA Доктором') && askText.includes(passObj.battery.chip) && askText.includes('блокировка активации'), 'паспорт: чип, группы ячеек, блокировка активации — «прочитано QAITA Доктором»');
+ok(askText.includes('прочитано SAQTA Доктором') && askText.includes(passObj.battery.chip) && askText.includes('блокировка активации'), 'паспорт: чип, группы ячеек, блокировка активации — «прочитано SAQTA Доктором»');
 ok((await page.evaluate(() => location.hash)) === '#hub', 'после импорта ссылка очищена до #hub — повторно не импортируется');
-ok((await page.textContent('[data-testid="plan"]')).includes('готово'), 'план проверки: QAITA Доктор — готово');
+ok((await page.textContent('[data-testid="plan"]')).includes('готово'), 'план проверки: SAQTA Доктор — готово');
 await shot('09-doctor');
 const linFx = join(root, 'tests/fixtures/doctor-linux');
-const linOut = execFileSync('sh', [join(root, 'check/doctor/qaita-doctor.sh'), '--no-open'], { env: { ...process.env, QAITA_OS: 'Linux', QAITA_ROOT: linFx, PATH: `${join(linFx, 'bin')}:${process.env.PATH}` }, encoding: 'utf8' });
+const linOut = execFileSync('sh', [join(root, 'check/doctor/saqta-doctor.sh'), '--no-open'], { env: { ...process.env, SAQTA_OS: 'Linux', SAQTA_ROOT: linFx, PATH: `${join(linFx, 'bin')}:${process.env.PATH}` }, encoding: 'utf8' });
 const linLink = linOut.split('\n').find((l) => l.includes('#hub/doctor='));
 await page.click('#view [data-ask]');
 await page.fill('#psPaste', linLink);

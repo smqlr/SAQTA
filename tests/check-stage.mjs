@@ -1,5 +1,5 @@
-// Проверка этапа 2 «Проверка» без браузера: ценность проверки, физика ТЕСТ-30, QAITA Доктор, цифры README.
-// Запуск: npm run check-stage   (нужен собранный dist/qaita.html для проверки ссылки: npm run build)
+// Проверка этапа 2 «Проверка» без браузера: ценность проверки, физика ТЕСТ-30, SAQTA Доктор, цифры README.
+// Запуск: npm run check-stage   (нужен собранный dist/saqta.html для проверки ссылки: npm run build)
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -62,10 +62,10 @@ ok(Object.values(seen).every((n) => n > 0), `встречаются все ис�
 const low = runTest30({ seed: 30, packSoh: 72 });
 ok(low.results.filter((c) => c.pack === 'A').every((c) => c.grade !== 'A'), 'пакет 72% — его ячейки не получают A');
 
-console.log('3. QAITA Доктор');
-const doctor = join(root, 'check/doctor/qaita-doctor.sh');
+console.log('3. SAQTA Доктор');
+const doctor = join(root, 'check/doctor/saqta-doctor.sh');
 const fx = join(root, 'tests/fixtures/doctor-linux');
-const linuxEnv = { ...process.env, QAITA_OS: 'Linux', QAITA_ROOT: fx, PATH: `${join(fx, 'bin')}:${process.env.PATH}` };
+const linuxEnv = { ...process.env, SAQTA_OS: 'Linux', SAQTA_ROOT: fx, PATH: `${join(fx, 'bin')}:${process.env.PATH}` };
 const lin = decodePassport(execFileSync('sh', [doctor, '--json'], { env: linuxEnv, encoding: 'utf8' }));
 ok(lin.ok && lin.battery.design === 50450 && lin.battery.full === 39830 && lin.battery.soh === 79 && lin.battery.cycles === 412, 'Linux: батарея из /sys — 39 830 из 50 450 мВт·ч, 79%, 412 циклов');
 ok(lin.ok && lin.device.model === 'ThinkPad T480 (20L5S0AJ00)' && lin.device.ramGB === 8 && lin.device.serial === '...BCDE', 'Linux: модель, память 8 ГБ, серийный номер скрыт до 4 знаков');
@@ -78,27 +78,27 @@ if (process.platform === 'darwin') {
   ok(mac.ok && mac.disks.length > 0 && mac.disks.every((d) => d.model && !/plist|error/i.test(d.model)), `macOS: диски — ${mac.disks.map((d) => `${d.model} (${d.smart})`).join(', ')}`);
   ok(mac.ok && mac.ms != null && mac.ms < 5000, `macOS: прочитано за ${mac.ms} мс`);
 }
-const app = join(root, 'dist/qaita.html');
+const app = join(root, 'dist/saqta.html');
 if (existsSync(app)) {
   const out = execFileSync('sh', [doctor, '--no-open', '--app', app], { env: linuxEnv, encoding: 'utf8' });
   const link = out.split('\n').find((l) => l.includes('#hub/doctor='));
   const back = decodePassport(link);
   ok(link?.startsWith('file://') && back.ok && back.battery.full === 39830, 'ссылка на офлайн-файл: file://…#hub/doctor=… читается обратно без потерь');
 }
-const ps1 = readFileSync(join(root, 'check/doctor/qaita-doctor.ps1'));
+const ps1 = readFileSync(join(root, 'check/doctor/saqta-doctor.ps1'));
 const ps1Text = ps1.toString('utf8');
 ok(ps1[0] === 0xef && ps1[1] === 0xbb && ps1[2] === 0xbf, 'Windows: файл в UTF-8 с BOM — PowerShell 5.1 прочитает кириллицу');
 const code = ps1Text.replace(/'[^'\r\n]*'|"[^"\r\n]*"/g, "''").replace(/#.*$/gm, '');
 ok(!/\?\?|\?\.|&&|\|\|/.test(code), 'Windows: без операторов PowerShell 7 (??, ?., &&, ||) — работает в 5.1');
 ok(/BatteryStaticData/.test(ps1Text) && /BatteryFullChargedCapacity/.test(ps1Text) && /batteryreport/.test(ps1Text) && /Get-PhysicalDisk/.test(ps1Text), 'Windows: WMI батареи, запасной отчёт powercfg и диски');
-ok(!decodePassport('doctor=@@@').ok && !decodePassport('{"qaita":2}').ok && !decodePassport('{"qaita":1,"battery":{"design":100,"full":900}}').ok, 'испорченный или чужой паспорт отклоняется');
+ok(!decodePassport('doctor=@@@').ok && !decodePassport('{"saqta":2}').ok && !decodePassport('{"saqta":1,"battery":{"design":100,"full":900}}').ok, 'испорченный или чужой паспорт отклоняется');
 
 console.log('4. Цифры README = расчёт check/model');
 const m = model();
 const readme = readFileSync(join(root, 'README.md'), 'utf8').replace(/[  ]/g, ' ');
 const ru = (v) => { const [a, b] = String(v).split('.'); return a.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (b ? `,${b}` : ''); };
 const must = [
-  `${ru(m.manualH)} ч`, `${ru(m.manualTenge)} ₸`, `${ru(m.qaitaHandsH)} ч`, `${ru(m.testCell)} ₸`, `${ru(m.fullCell)} ₸`,
+  `${ru(m.manualH)} ч`, `${ru(m.manualTenge)} ₸`, `${ru(m.saqtaHandsH)} ч`, `${ru(m.testCell)} ₸`, `${ru(m.fullCell)} ₸`,
   `${ru(m.standPerHour)} ячейк`, `${ru(m.liiCapacity)} полных циклов`, `${ru(m.liiMaxShare)}%`, `${m.manual3Min} мин и ${ru(m.manual3Tenge)} ₸`,
   `${ru(m.inaResMOhm)} мОм`, `+${ru(m.pack.blind)} ₸`, `+${ru(m.pack.withChip)} ₸`, `${m.pack.value} ₸`, `${m.doctorSum} ₸`, `${m.cv.a50screen} ₸`,
   `${ru(m.extraPerDevice)} ₸`,

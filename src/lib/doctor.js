@@ -1,4 +1,4 @@
-// Паспорт QAITA Доктора — то, что устройство рассказало о себе (check/doctor/qaita-doctor.sh и .ps1).
+// Паспорт SAQTA Доктора — то, что устройство рассказало о себе (check/doctor/saqta-doctor.sh и .ps1).
 // Скрипт кладёт паспорт в ссылку: <приложение>#hub/doctor=<base64url(JSON)>. Хаб принимает ссылку, «doctor=…»,
 // голый base64url или JSON. Формат v1 описан в check/README.md.
 
@@ -11,14 +11,14 @@ const b64urlToText = (s) => {
 
 export function decodePassport(input) {
   const raw = String(input || '').trim();
-  if (!raw) return { ok: false, error: 'Пусто: вставьте ссылку или паспорт из QAITA Доктора' };
+  if (!raw) return { ok: false, error: 'Пусто: вставьте ссылку или паспорт из SAQTA Доктора' };
   let json;
   try {
     if (raw.startsWith('{')) json = JSON.parse(raw);
     else {
       const m = raw.match(/doctor=([A-Za-z0-9_-]+)/);
       const token = m ? m[1] : /^[A-Za-z0-9_-]+$/.test(raw) ? raw : null;
-      if (!token) return { ok: false, error: 'Это не паспорт QAITA Доктора' };
+      if (!token) return { ok: false, error: 'Это не паспорт SAQTA Доктора' };
       json = JSON.parse(b64urlToText(token));
     }
   } catch {
@@ -32,7 +32,7 @@ const nums = (a) => (Array.isArray(a) ? a.map(n).filter((v) => v != null) : []);
 const str = (v, max = 80) => (v == null ? null : String(v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) || null);
 
 export function normalizePassport(p) {
-  if (!p || typeof p !== 'object' || p.qaita !== 1) return { ok: false, error: 'Это не паспорт QAITA Доктора (нет метки qaita: 1)' };
+  if (!p || typeof p !== 'object' || p.saqta !== 1) return { ok: false, error: 'Это не паспорт SAQTA Доктора (нет метки saqta: 1)' };
   const d = p.device || {};
   const device = {
     kind: ['laptop', 'desktop'].includes(d.kind) ? d.kind : 'laptop',

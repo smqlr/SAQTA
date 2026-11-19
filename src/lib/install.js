@@ -1,4 +1,4 @@
-// Установка QAITA на телефон как приложения (PWA): иконка на рабочем столе, без адресной строки.
+// Установка SAQTA на телефон как приложения (PWA): иконка на рабочем столе, без адресной строки.
 // Android и компьютер — системное окно установки (beforeinstallprompt); iPhone — пошаговая подсказка.
 import { APP_NAME, APP_URL } from '../data.js';
 import { ICON } from './icons.js';
@@ -7,7 +7,7 @@ import { sheet, toast } from './ui.js';
 let deferred = null;
 const listeners = new Set();
 const notify = () => listeners.forEach((fn) => fn());
-const DISMISS_KEY = 'qaita-install-dismissed';
+const DISMISS_KEY = 'saqta-install-dismissed';
 
 export const isStandalone = () =>
   matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;

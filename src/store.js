@@ -11,7 +11,7 @@ import { suggestFromPassport, passportTitle } from './lib/doctor.js';
 import { planFor, binOf } from './lib/sort.js';
 import { DAY, pad, num } from './lib/format.js';
 
-const KEY = 'qaita-v4';
+const KEY = 'saqta-v4';
 const VERSION = 6; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных; 5: этап 2 — паспорт Доктора, заявки Lenovo; 6: этап 3 — сортировка
 const listeners = new Set();
 let state;
@@ -108,7 +108,7 @@ export function initialState(preset = 'ready') {
   if (preset === 'ready') {
     // Решение команды 18.11: в демо-кошельке «сдача ноутбука +200» и «роялти +1 120» (итого 1 320)
     const school = LEAGUE[0]; // демо: школа из Донор-лиги для сдачи из примера
-    const cert = { id: uid(), no: 'WD-000780', deviceNo: 'D-000780', model: 'Lenovo IdeaPad', ts: t - 3 * DAY + 3600000, method: WIPE.purge, by: 'Хаб QAITA' };
+    const cert = { id: uid(), no: 'WD-000780', deviceNo: 'D-000780', model: 'Lenovo IdeaPad', ts: t - 3 * DAY + 3600000, method: WIPE.purge, by: 'Хаб SAQTA' };
     const d = { id: uid(), ts: t - 3 * DAY, deviceNo: 'D-000780', model: 'Lenovo IdeaPad', type: 'laptop', state: 'разбит корпус', tag: 'donor', method: 'school', pointId: school.id, point: school.name, address: school.address || '', lat: school.lat, lon: school.lon, exampleId: 'lenovo', status: 'sold', bonus: DEMO_WALLET.laptopBonus, certId: cert.id };
     s.donations.push(d);
     s.certs.push(cert);
@@ -263,7 +263,7 @@ export function cancelWorkshopOrder(id) {
 function issueCert(d, tag) {
   const c = {
     id: uid(), no: `WD-${d.deviceNo.slice(2)}`, deviceNo: d.deviceNo, model: d.model, ts: now(),
-    method: tag === 'whole' || tag === 'donor' ? WIPE.purge : WIPE.destroy, by: 'Хаб QAITA',
+    method: tag === 'whole' || tag === 'donor' ? WIPE.purge : WIPE.destroy, by: 'Хаб SAQTA',
   };
   state.certs.push(c);
   d.certId = c.id;
@@ -319,12 +319,12 @@ export function askDevice(itemId, { full, design, cycles, source, unit = null, p
   commit({ type: 'ask', item });
 }
 
-// Паспорт QAITA Доктора со ссылки: ноутбук на столе приёма сам рассказал о себе → новая карточка в очереди
+// Паспорт SAQTA Доктора со ссылки: ноутбук на столе приёма сам рассказал о себе → новая карточка в очереди
 export function importPassport(ps) {
   const b = ps.battery;
   const item = {
     id: uid(), deviceNo: nextDevice(), exampleId: null, model: passportTitle(ps), type: 'laptop',
-    state: 'включается · прочитан QAITA Доктором', suggestedTag: suggestFromPassport(ps), tag: null, status: 'new',
+    state: 'включается · прочитан SAQTA Доктором', suggestedTag: suggestFromPassport(ps), tag: null, status: 'new',
     donationId: null, ts: now(), demo: false, fromDoctor: true, test30: null,
     soh: b ? { full: b.full, design: b.design, cycles: b.cycles, value: b.soh, source: 'doctor', unit: b.unit, pf: b.pf, passport: ps, ts: now() }
       : { full: null, design: null, cycles: null, value: null, source: 'doctor', unit: null, pf: null, passport: ps, ts: now() },

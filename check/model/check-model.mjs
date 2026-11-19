@@ -24,7 +24,7 @@ export const INPUT = {
   workDays: 100, // README: ≈ 100 рабочих дней хаба, февраль–июнь 2027 (101 по производственному календарю)
   chipMachineSec: CHECK.chipMachineSec, // замер 18.11: ioreg прочитал чип за 0,015 с
   chipMin: CHECK.chipMin, // README: 30 с человека на чтение чипа
-  doctorMin: CHECK.doctorMin, // README: 1 мин человека на QAITA Доктор
+  doctorMin: CHECK.doctorMin, // README: 1 мин человека на SAQTA Доктор
   packGood: CHECK.packGoodShare, // README: доля пакетов с SoH ≥ 60% (IBM UrJar: 70%, берём 50%)
   devicesPilot: 20000, // док: 20 000 устройств в хабе
   inaLsbMv: 4, // даташит INA219: шаг напряжения шины 4 мВ
@@ -40,11 +40,11 @@ export function model(I = INPUT) {
   const testCell = I.cellHandsSec * (I.rate / 60) + standPerCell;
   const extraSec = I.keptShare * I.remeasureSec + I.disputedShare * I.cycleHandsSec;
   const fullCell = testCell + extraSec * (I.rate / 60);
-  // Все ячейки пилота: вручную по кейсу и в QAITA
+  // Все ячейки пилота: вручную по кейсу и в SAQTA
   const manualH = (I.cellsPilot * I.cellManualMin) / 60;
   const manualTenge = I.cellsPilot * I.cellManualTenge;
-  const qaitaHandsH = (I.cellsPilot * (I.cellHandsSec + extraSec)) / 3600;
-  const qaitaTenge = I.cellsPilot * fullCell;
+  const saqtaHandsH = (I.cellsPilot * (I.cellHandsSec + extraSec)) / 3600;
+  const saqtaTenge = I.cellsPilot * fullCell;
   // Пропускная способность стенда: руки (16 × 10 с) + тест 30 с на пачку
   const batchSec = I.standCells * I.cellHandsSec + I.standSec;
   const standPerHour = (3600 / batchSec) * I.standCells;
@@ -87,8 +87,8 @@ export function model(I = INPUT) {
     cheaperFull: r1(I.cellManualTenge / fullCell),
     manualH: r1(manualH),
     manualTenge,
-    qaitaHandsH: r1(qaitaHandsH),
-    qaitaTenge: Math.round(qaitaTenge / 1000) * 1000,
+    saqtaHandsH: r1(saqtaHandsH),
+    saqtaTenge: Math.round(saqtaTenge / 1000) * 1000,
     batchSec,
     standPerHour: Math.round(standPerHour),
     standHours: r1(standHours),
@@ -119,7 +119,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     ['Ячейка: тест на стенде (документация)', `10 ₸ рук + ${ru(m.standPerCell)} ₸ стенда = ${ru(m.testCell)} ₸ (в ${ru(m.cheaperTest)} раза дешевле 900 ₸)`],
     ['Ячейка: повторный замер через 7 дней и полный цикл спорных', `+${ru(m.extraCell)} ₸ → всего ${ru(m.fullCell)} ₸ (в ${ru(m.cheaperFull)} раза дешевле)`],
     ['5 610 ячеек вручную (кейс)', `${ru(m.manualH)} ч и ${ru(m.manualTenge)} ₸`],
-    ['5 610 ячеек в QAITA', `${ru(m.qaitaHandsH)} ч рук и ≈ ${ru(m.qaitaTenge)} ₸`],
+    ['5 610 ячеек в SAQTA', `${ru(m.saqtaHandsH)} ч рук и ≈ ${ru(m.saqtaTenge)} ₸`],
     ['Стенд: пачка 16 ячеек', `${m.batchSec} с (160 с рук + 30 с тест) → ${ru(m.standPerHour)} ячеек в час, весь пилот — ${ru(m.standHours)} ч`],
     ['Lii-500: полных циклов за пилот', `${ru(m.liiCapacity)} → хватает, если спорных ≤ ${ru(m.liiMaxShare)}%; при 10% (${ru(m.disputed)}) загрузка ${m.liiLoad}%`],
     ['Три ячейки ноутбука команды', `вручную ${m.manual3Min} мин и ${ru(m.manual3Tenge)} ₸; чип — 0,015 с машины и 30 с человека (в ${m.chipVsHand} раз дешевле)`],
@@ -127,7 +127,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     ['ЦП: экран A50 / камера A50', `${m.cv.a50screen} ₸ / ${m.cv.a50cam} ₸`],
     ['ЦП: память / SSD / ячейки Lenovo', `${m.cv.ram} ₸ / ${m.cv.ssd} ₸ / ${m.cv.cells} ₸`],
     ['Пакет батареи: вслепую / с чипом / ЦП чипа', `${m.pack.blind} ₸ / ${m.pack.withChip} ₸ / ${m.pack.value} ₸ при цене чтения ${m.pack.chipCost} ₸`],
-    ['QAITA Доктор на Lenovo', `${m.cv.ram} + ${m.cv.ssd} + ${m.pack.value} = ${m.doctorSum} ₸ > ${m.doctorCost} ₸ → запускаем`],
+    ['SAQTA Доктор на Lenovo', `${m.cv.ram} + ${m.cv.ssd} + ${m.pack.value} = ${m.doctorSum} ₸ > ${m.doctorCost} ₸ → запускаем`],
     ['Добавка к обработке устройства', `+${ru(m.extraPerDevice)} ₸ на устройство (206 ₸ в документации)`],
   ];
   const w = Math.max(...rows.map((r) => r[0].length));

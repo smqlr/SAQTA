@@ -61,7 +61,7 @@ ok(await page.evaluate(() => !!document.querySelector('.tabbar')), 'без ин�
 ok(!errors.length, `ошибок в консоли нет${errors.length ? ': ' + errors.join(' | ') : ''}`);
 await ctx.close();
 
-// Первый запуск на телефоне: житель сначала проходит знакомство с Кайтиком, потом видит плашку установки
+// Первый запуск на телефоне: житель сначала проходит знакомство с Сактиком, потом видит плашку установки
 async function finishOnboarding(p) {
   if (!(await p.$('.onb'))) return;
   for (let i = 0; i < 4; i++) await p.click('[data-onb="next"]');
@@ -77,7 +77,7 @@ for (const [name, dev] of [['Android', devices['Pixel 7']], ['iPhone', devices['
   const p = await c.newPage();
   await p.goto(`${URL_}#resident`);
   await p.waitForTimeout(600);
-  ok(await p.isVisible('.install-bar'), `${name}: плашка «Установите QAITA»`);
+  ok(await p.isVisible('.install-bar'), `${name}: плашка «Установите SAQTA»`);
   await finishOnboarding(p);
   await p.click('.install-bar [data-install]');
   const text = await p.textContent('.sheet');

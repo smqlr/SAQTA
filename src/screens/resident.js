@@ -133,7 +133,7 @@ function photo() {
   if (a.status === 'loading') {
     return `${head}
     <div class="scan mt-12"><img src="${ui.photoUrl}" alt="Твоё фото"><div class="beam"></div><div class="scan-cap"><span class="spinner"></span>${esc(a.stage)}</div></div>
-    <div class="onb-guide" style="margin-top:6px"><div style="width:84px;flex:none">${mascot('scan', { label: 'Кайтик смотрит на фото' })}</div><div class="bubble">Секунду, рассматриваю! Первый раз ИИ загружается чуть дольше.</div></div>`;
+    <div class="onb-guide" style="margin-top:6px"><div style="width:84px;flex:none">${mascot('scan', { label: 'Сактик смотрит на фото' })}</div><div class="bubble">Секунду, рассматриваю! Первый раз ИИ загружается чуть дольше.</div></div>`;
   }
   if (a.status === 'error' || !a.result?.guesses?.length || a.result.techness < 0.06) {
     return `${head}
@@ -411,7 +411,7 @@ function receipt(st) {
   const payload = `${APP_NAME}:receipt:${d.deviceNo}:${getProfile().cardId}`;
   return `
   <div class="card receipt">
-    <div style="width:120px;margin:-4px auto -6px">${mascot('party', { label: 'Кайтик радуется' })}</div>
+    <div style="width:120px;margin:-4px auto -6px">${mascot('party', { label: 'Сактик радуется' })}</div>
     <div class="done-line">${ICON.check}${big ? 'Заявка на вывоз создана' : 'Квитанция готова'}</div>
     ${qrSvg(payload, { label: `QR-квитанция ${d.deviceNo}` })}
     <div><div class="xs muted">Квитанция ${APP_NAME}</div><h2 class="num">${d.deviceNo}</h2></div>

@@ -1,4 +1,4 @@
-// Иконки и скриншоты для установки QAITA на телефон (PWA). Запуск после `npm run build`:
+// Иконки и скриншоты для установки SAQTA на телефон (PWA). Запуск после `npm run build`:
 //   node tools/pwa-assets.mjs
 // Нужен Playwright с Chromium. Результат — в src/pwa/; build.mjs копирует его в docs/.
 import { createRequire } from 'node:module';

@@ -1,5 +1,5 @@
 // Распознавание техники по фото.
-// 1) Сервер QAITA с Claude (если подключён в профиле): модель, видимые поломки, живые детали.
+// 1) Сервер SAQTA с Claude (если подключён в профиле): модель, видимые поломки, живые детали.
 // 2) ИИ в телефоне (MobileNet v2, без интернета): вид техники. Движок и веса грузятся при первом фото:
 //    в офлайн-файле они внутри HTML, на GitHub Pages — файлы ai/engine.js и ai/mobilenet.bin.
 import { topGroups, GROUPS } from './ai-map.js';
@@ -25,16 +25,16 @@ function addScript({ src, text }) {
   });
 }
 
-export function engineReady() { return !!window.QAITA_AI?.ready; }
+export function engineReady() { return !!window.SAQTA_AI?.ready; }
 
 export function loadEngine(onStage = () => {}) {
-  if (engineReady()) return Promise.resolve(window.QAITA_AI);
+  if (engineReady()) return Promise.resolve(window.SAQTA_AI);
   if (loading) return loading;
   loading = (async () => {
     onStage('Загружаю ИИ в телефон…');
-    const inlineJs = document.getElementById('qaita-ai-js');
-    if (!window.QAITA_AI) await addScript(inlineJs ? { text: inlineJs.textContent } : { src: 'ai/engine.js' });
-    const inlineW = document.getElementById('qaita-ai-w');
+    const inlineJs = document.getElementById('saqta-ai-js');
+    if (!window.SAQTA_AI) await addScript(inlineJs ? { text: inlineJs.textContent } : { src: 'ai/engine.js' });
+    const inlineW = document.getElementById('saqta-ai-w');
     let weights;
     if (inlineW) weights = b64ToBuffer(inlineW.textContent);
     else {
@@ -43,9 +43,9 @@ export function loadEngine(onStage = () => {}) {
       weights = await r.arrayBuffer();
     }
     onStage('Запускаю нейросеть…');
-    await window.QAITA_AI.load(weights);
-    window.QAITA_AI.ready = true;
-    return window.QAITA_AI;
+    await window.SAQTA_AI.load(weights);
+    window.SAQTA_AI.ready = true;
+    return window.SAQTA_AI;
   })();
   loading.catch(() => { loading = null; });
   return loading;

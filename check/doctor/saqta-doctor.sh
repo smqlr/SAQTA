@@ -1,12 +1,12 @@
 #!/bin/sh
-# QAITA Доктор — «спроси устройство»: ноутбук сам рассказывает о батарее, диске и памяти.
+# SAQTA Доктор — «спроси устройство»: ноутбук сам рассказывает о батарее, диске и памяти.
 # Читает только железо. Файлы, имена пользователя и компьютера не трогает, ничего не стирает и не меняет.
 #
-#   sh qaita-doctor.sh                       открыть паспорт в хабе QAITA (сайт)
-#   sh qaita-doctor.sh --app /путь/qaita.html открыть в офлайн-файле с флешки
-#   sh qaita-doctor.sh --no-open             только напечатать ссылку
-#   sh qaita-doctor.sh --json                только паспорт в JSON
-#   sh qaita-doctor.sh --full-serial         серийный номер целиком (по умолчанию — последние 4 знака)
+#   sh saqta-doctor.sh                       открыть паспорт в хабе SAQTA (сайт)
+#   sh saqta-doctor.sh --app /путь/saqta.html открыть в офлайн-файле с флешки
+#   sh saqta-doctor.sh --no-open             только напечатать ссылку
+#   sh saqta-doctor.sh --json                только паспорт в JSON
+#   sh saqta-doctor.sh --full-serial         серийный номер целиком (по умолчанию — последние 4 знака)
 #
 # macOS: ioreg (газомер батареи), system_profiler (модель, память, SSD и SMART, блокировка активации).
 # Linux, в том числе загрузочная флешка: /sys/class/power_supply, /sys/class/dmi, /proc, smartctl (если есть).
@@ -70,7 +70,7 @@ B_DESIGN='' B_FULL='' B_UNIT='' B_CYCLES='' B_CHIP='' B_CELLS='' B_QMAX='' B_TMA
 
 # ── macOS ───────────────────────────────────────────────────────────────────
 mac() {
-  T=$(mktemp -d 2>/dev/null || mktemp -d -t qaita) || exit 1
+  T=$(mktemp -d 2>/dev/null || mktemp -d -t saqta) || exit 1
   # plutil печатает ошибку в stdout, поэтому смотрим на код возврата
   pl() { v=$(plutil -extract "$2" raw -o - "$1" 2>/dev/null) && printf '%s' "$v"; }
   ints() { plutil -extract "$2" xml1 -o - "$1" 2>/dev/null | sed -n 's:.*<integer>\(-\{0,1\}[0-9]*\)</integer>.*:\1:p' | tr '\n' ' '; }
@@ -141,9 +141,9 @@ mac() {
 }
 
 # ── Linux (и загрузочная флешка) ────────────────────────────────────────────
-# QAITA_ROOT — подмена корня для тестов: $QAITA_ROOT/sys, $QAITA_ROOT/proc, $QAITA_ROOT/etc
+# SAQTA_ROOT — подмена корня для тестов: $SAQTA_ROOT/sys, $SAQTA_ROOT/proc, $SAQTA_ROOT/etc
 linux() {
-  R=${QAITA_ROOT:-}
+  R=${SAQTA_ROOT:-}
   rd() { [ -r "$1" ] && head -n 1 "$1" 2>/dev/null | tr -d '\r'; }
   for B in "$R"/sys/class/power_supply/BAT* "$R"/sys/class/power_supply/battery; do
     [ -d "$B" ] || continue
@@ -180,7 +180,7 @@ linux() {
     [ -d "$d" ] || continue
     name=${d##*/}
     case "$name" in loop*|ram*|zram*|sr*|dm-*|md*|fd*|mmcblk*boot*) continue ;; esac
-    [ "$(rd "$d/removable")" = 1 ] && continue # флешку QAITA Доктора не считаем
+    [ "$(rd "$d/removable")" = 1 ] && continue # флешку SAQTA Доктора не считаем
     model=$(trim "$(rd "$d/device/model")")
     sectors=$(rd "$d/size")
     gb=''
@@ -202,7 +202,7 @@ linux() {
   done
 }
 
-case "${QAITA_OS:-$(uname -s)}" in
+case "${SAQTA_OS:-$(uname -s)}" in
   Darwin) mac ;;
   *) linux ;;
 esac
@@ -211,7 +211,7 @@ if [ -n "$B_DESIGN" ] && [ -n "$B_FULL" ] && [ "$B_DESIGN" -gt 0 ] 2>/dev/null; 
   BAT="{\"unit\":\"$B_UNIT\",\"design\":$(jnum "$B_DESIGN"),\"full\":$(jnum "$B_FULL"),\"cycles\":$(jnum "$B_CYCLES"),\"chip\":$(jstr "$B_CHIP"),\"cellsMv\":$(jarr "$B_CELLS"),\"qmax\":$(jarr "$B_QMAX"),\"tMaxC\":$(jnum "$B_TMAX"),\"tMinC\":$(jnum "$B_TMIN"),\"pf\":$(jnum "$B_PF"),\"src\":\"$B_SRC\"}"
 fi
 MS=$(( $(now_ms) - START ))
-JSON="{\"qaita\":1,\"tool\":$(jstr "qaita-doctor.sh 1.0 · $OSNAME"),\"ms\":$MS,\"device\":{\"kind\":\"$KIND\",\"vendor\":$(jstr "$VENDOR"),\"model\":$(jstr "$MODEL"),\"cpu\":$(jstr "$CPU"),\"ramGB\":$(jnum "$RAM"),\"serial\":$(jstr "$(mask "$SERIAL")"),\"os\":$(jstr "$OSNAME"),\"lock\":$(jstr "$LOCK")},\"battery\":$BAT,\"disks\":[$DISKS]}"
+JSON="{\"saqta\":1,\"tool\":$(jstr "saqta-doctor.sh 1.0 · $OSNAME"),\"ms\":$MS,\"device\":{\"kind\":\"$KIND\",\"vendor\":$(jstr "$VENDOR"),\"model\":$(jstr "$MODEL"),\"cpu\":$(jstr "$CPU"),\"ramGB\":$(jnum "$RAM"),\"serial\":$(jstr "$(mask "$SERIAL")"),\"os\":$(jstr "$OSNAME"),\"lock\":$(jstr "$LOCK")},\"battery\":$BAT,\"disks\":[$DISKS]}"
 
 if [ "$JSON_ONLY" = 1 ]; then
   printf '%s\n' "$JSON"
@@ -229,7 +229,7 @@ case "$APP_URL" in
 esac
 LINK="${BASE%%#*}#hub/doctor=$B64"
 
-echo "QAITA Доктор · ${VENDOR:+$VENDOR }$MODEL"
+echo "SAQTA Доктор · ${VENDOR:+$VENDOR }$MODEL"
 if [ "$BAT" != null ]; then
   soh=$(awk -v f="$B_FULL" -v d="$B_DESIGN" 'BEGIN { printf "%d", f * 100 / d + 0.5 }')
   unit_ru=$( [ "$B_UNIT" = mAh ] && echo 'мА·ч' || echo 'мВт·ч' )
@@ -243,7 +243,7 @@ fi
 [ "$LOCK" = enabled ] && echo "  Блокировка активации включена: целым не продаём, только детали"
 echo "  Прочитано за $MS мс"
 echo
-echo "Ссылка для хаба QAITA:"
+echo "Ссылка для хаба SAQTA:"
 echo "$LINK"
 if [ "$OPEN" = 1 ]; then
   if command -v open >/dev/null 2>&1 && [ "$(uname -s)" = Darwin ]; then open "$LINK"

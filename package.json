@@ -1,7 +1,7 @@
 {
-  "name": "qaita",
+  "name": "saqta",
   "version": "1.0.0",
-  "description": "QAITA — сбор старой техники в Актобе: житель, кошелёк, магазин, ОСИ, хаб, акимат (Hack.IT, STEM, «Электронные отходы»)",
+  "description": "SAQTA — сбор старой техники в Актобе: житель, кошелёк, магазин, ОСИ, хаб, акимат (Hack.IT, STEM, «Электронные отходы»)",
   "scripts": {
     "build": "node build.mjs",
     "test": "node tests/e2e.mjs",

@@ -1,4 +1,4 @@
-// Экран «Хаб»: очередь с бирками, план проверки, расчёт EV и ценности проверки, «Спроси устройство» (QAITA Доктор),
+// Экран «Хаб»: очередь с бирками, план проверки, расчёт EV и ценности проверки, «Спроси устройство» (SAQTA Доктор),
 // ТЕСТ-30, банк деталей с QR-паспортом, сортировка по дереву разборки и сортировочная стена с партиями.
 import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS, RAW, CHECK, CHECK_PLAN, PART_CHECKS, SORT_BINS, SORT_FLAG } from '../data.js';
 import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder, importPassport, sortPlanOf, sortItem, sortAll, shipLot, setSortFlag, canSort } from '../store.js';
@@ -21,14 +21,14 @@ let trip = null; // последний построенный маршрут Г�
 let ui = { pick: null, running: false, lastRun: null };
 export function home() { ui = { pick: null, running: false, lastRun: ui.lastRun }; }
 
-// Ссылка из QAITA Доктора: #hub/doctor=<паспорт> → новая карточка в очереди (check/doctor)
+// Ссылка из SAQTA Доктора: #hub/doctor=<паспорт> → новая карточка в очереди (check/doctor)
 export function open(param) {
   if (!String(param).startsWith('doctor=')) return;
   const ps = decodePassport(param);
   try { history.replaceState(null, '', `${location.pathname}${location.search}#hub`); } catch { /* file:// без истории — не страшно */ }
   if (!ps.ok) { setTimeout(() => toast(ps.error), 0); return; }
   const item = importPassport(ps);
-  setTimeout(() => toast(`QAITA Доктор: ${item.model}${ps.battery ? ` · здоровье батареи ${ps.battery.soh}%` : ''}`), 0);
+  setTimeout(() => toast(`SAQTA Доктор: ${item.model}${ps.battery ? ` · здоровье батареи ${ps.battery.soh}%` : ''}`), 0);
 }
 
 const artOf = (item) => {
@@ -228,7 +228,7 @@ const isDanger = (it) => it.suggestedTag === 'danger' || it.tag === 'danger' || 
 function stepStatus(s, it) {
   if (s.kind === 'safety' || s.kind === 'data') return ['всегда', 'on'];
   if (s.kind === 'partner') return ['партнёр', 'muted'];
-  if (s.kind === 'ask') return s.name === 'QAITA Доктор' && it.soh ? ['готово', 'on'] : ['спросить устройство', 'ask'];
+  if (s.kind === 'ask') return s.name === 'SAQTA Доктор' && it.soh ? ['готово', 'on'] : ['спросить устройство', 'ask'];
   if (/ТЕСТ-30/.test(s.name)) {
     const v = it.soh?.value;
     if (v == null) return ['после чипа', 'muted'];
@@ -270,7 +270,7 @@ function partCheck(p, it) {
   const cost = Math.round(pc.min * EV.tengePerMinute);
   if (pc.needsOn && isOff(it)) return { v, text: 'до снятия не проверить: не включается — проверяем снятую' };
   if (v > cost) return { v, text: `окупается: ${pc.name}, ${num(cost)} ₸` };
-  return { v, doctor: !!pc.doctor, text: pc.doctor ? `отдельно ${num(v)} < ${num(cost)} ₸ — входит в QAITA Доктор` : `дороже пользы (${num(cost)} ₸) — проверяем снятую` };
+  return { v, doctor: !!pc.doctor, text: pc.doctor ? `отдельно ${num(v)} < ${num(cost)} ₸ — входит в SAQTA Доктор` : `дороже пользы (${num(cost)} ₸) — проверяем снятую` };
 }
 
 function evTable(ex, it) {
@@ -303,7 +303,7 @@ function evTable(ex, it) {
     ${doctorLine(parts, it)}`;
 }
 
-// Ноутбук: QAITA Доктор отвечает сразу за память, SSD и батарею — ценность проверки складывается
+// Ноутбук: SAQTA Доктор отвечает сразу за память, SSD и батарею — ценность проверки складывается
 function doctorLine(parts, it) {
   if (it.type !== 'laptop') return '';
   const items = parts.map((p) => ({ p, c: partCheck(p, it) })).filter(({ p, c }) => c.v != null && PART_CHECKS.find((x) => x.match.test(p.name) && (x.doctor || x.chip)));
@@ -311,7 +311,7 @@ function doctorLine(parts, it) {
   const sum = items.reduce((a, { c }) => a + c.v, 0);
   const cost = Math.round(CHECK.doctorMin * EV.tengePerMinute);
   const chip = items.find(({ c }) => c.chip)?.c.chip;
-  return `<p class="small mt-8" data-testid="doctor-line"><b>QAITA Доктор</b> отвечает сразу за ${items.map(({ p }) => esc(p.name.toLowerCase())).join(', ')}: ЦП вместе ${num(sum)} ₸ ${sum > cost ? '>' : '≤'} ${num(cost)} ₸ за минуту — ${sum > cost ? '<b style="color:var(--tag-whole)">запускаем</b>' : 'не запускаем'}.${chip ? ` Пакет батареи вслепую даёт ${num(chip.blind)} ₸, с чипом — ${num(chip.withChip)} ₸.` : ''}</p>`;
+  return `<p class="small mt-8" data-testid="doctor-line"><b>SAQTA Доктор</b> отвечает сразу за ${items.map(({ p }) => esc(p.name.toLowerCase())).join(', ')}: ЦП вместе ${num(sum)} ₸ ${sum > cost ? '>' : '≤'} ${num(cost)} ₸ за минуту — ${sum > cost ? '<b style="color:var(--tag-whole)">запускаем</b>' : 'не запускаем'}.${chip ? ` Пакет батареи вслепую даёт ${num(chip.blind)} ₸, с чипом — ${num(chip.withChip)} ₸.` : ''}</p>`;
 }
 
 function askBlock(it) {
@@ -323,10 +323,10 @@ function askBlock(it) {
   const verdict = !s ? '' : !hasBat ? ['Батареи нет — диск и память по паспорту', 'var(--muted)']
     : s.pf ? ['Аварийный флаг чипа — пакет не вскрываем, целиком на переработку', 'var(--tag-danger)']
     : ok ? ['Пакет годен — ячейки на стенд ТЕСТ-30', 'var(--tag-whole)'] : [`Ниже ${TEST30.sohCutoff}% — батарея целиком на переработку`, 'var(--tag-danger)'];
-  const src = s?.source === 'doctor' ? realMark(`прочитано QAITA Доктором${ps?.ms != null ? ` за ${num(ps.ms)} мс` : ''}`)
+  const src = s?.source === 'doctor' ? realMark(`прочитано SAQTA Доктором${ps?.ms != null ? ` за ${num(ps.ms)} мс` : ''}`)
     : s?.source === 'report' ? realMark('прочитано из отчёта Windows') : '<span class="note-demo note-real">введено из PowerShell</span>';
   return `
-  <div class="section-label mt-16">«Спроси устройство» — QAITA Доктор</div>
+  <div class="section-label mt-16">«Спроси устройство» — SAQTA Доктор</div>
   <div class="card flat tight" data-testid="ask">
     <p class="small">Ноутбук сам знает здоровье батареи и диска: газомер батареи считает каждый кулон (Q = ∫ I dt), SSD ведёт SMART. Читаем за секунды и ничего не разбираем. Замер на ноутбуке команды: чип — за ${fmtDec(CHECK.chipMachineSec)} с.</p>
     ${s ? `<div class="row wrap mt-12" style="gap:16px;align-items:flex-start">
@@ -577,10 +577,10 @@ function openAsk(itemId) {
     let result = null;
     const draw = () => {
       body.innerHTML = `<div class="stack">
-        <p class="small"><b>QAITA Доктор</b> — одна команда на ноутбуке: читает только железо (батарею, диск, память), файлы и имена не трогает. Откроет паспорт прямо здесь или даст ссылку:</p>
-        <div class="code">Mac и Linux:  sh qaita-doctor.sh\nWindows:  powershell -ExecutionPolicy Bypass -File qaita-doctor.ps1</div>
+        <p class="small"><b>SAQTA Доктор</b> — одна команда на ноутбуке: читает только железо (батарею, диск, память), файлы и имена не трогает. Откроет паспорт прямо здесь или даст ссылку:</p>
+        <div class="code">Mac и Linux:  sh saqta-doctor.sh\nWindows:  powershell -ExecutionPolicy Bypass -File saqta-doctor.ps1</div>
         <p class="xs muted">Скрипты — в папке <code>check/doctor</code> репозитория. Ноутбук с паролем — загрузочная флешка с тем же скриптом.</p>
-        <textarea class="input" id="psPaste" rows="3" placeholder="Вставьте ссылку или паспорт из QAITA Доктора" aria-label="Паспорт QAITA Доктора"></textarea>
+        <textarea class="input" id="psPaste" rows="3" placeholder="Вставьте ссылку или паспорт из SAQTA Доктора" aria-label="Паспорт SAQTA Доктора"></textarea>
         <button class="btn primary block" data-paste>Прочитать паспорт</button>
         <div class="divider"></div>
         <p class="small">Только батарея на Windows — выполните в PowerShell (или <code>powercfg /batteryreport</code> в командной строке):</p>
