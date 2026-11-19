@@ -14,7 +14,7 @@ SAQTA Доктор для Windows — «спроси устройство»: н�
 Работает в Windows PowerShell 5.1 и PowerShell 7.
 #>
 param(
-  [string]$App = 'https://smqlr.github.io/Unknown-app/',
+  [string]$App = 'https://smqlr.github.io/SAQTA/',
   [switch]$NoOpen,
   [switch]$Json,
   [switch]$FullSerial
