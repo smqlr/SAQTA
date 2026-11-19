@@ -1,7 +1,7 @@
 // Экран «Хаб»: очередь с бирками, план проверки, расчёт EV и ценности проверки, «Спроси устройство» (QAITA Доктор),
-// ТЕСТ-30, банк деталей с QR-паспортом.
-import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS, RAW, RAW_PILOT_TENGE, CHECK, CHECK_PLAN, PART_CHECKS } from '../data.js';
-import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder, rawStock, shipRaw, importPassport } from '../store.js';
+// ТЕСТ-30, банк деталей с QR-паспортом, сортировка по дереву разборки и сортировочная стена с партиями.
+import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS, RAW, CHECK, CHECK_PLAN, PART_CHECKS, SORT_BINS, SORT_FLAG } from '../data.js';
+import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder, importPassport, sortPlanOf, sortItem, sortAll, shipLot, setSortFlag, canSort } from '../store.js';
 import { expectedValue, decision, evExplain, pSell } from '../lib/ev.js';
 import { parseBatteryReport, stateOfHealth } from '../lib/battery-report.js';
 import { checkValue, checkValueExplain, packChipValue, partVK } from '../lib/voi.js';
@@ -9,7 +9,7 @@ import { decodePassport } from '../lib/doctor.js';
 import { ART } from '../lib/art.js';
 import { ICON } from '../lib/icons.js';
 import { qrSvg } from '../lib/qr.js';
-import { num, esc, tenge, DAY, dateTime } from '../lib/format.js';
+import { num, esc, tenge, signed, DAY, dateTime } from '../lib/format.js';
 import { tagChip, simMark, realMark, sheet, toast } from '../lib/ui.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
 import { HUB, BOXES, pointById } from '../geo/points.js';
@@ -44,7 +44,7 @@ export function render(el, st) {
   if (ui.pick && ui.pick.itemId !== sel?.id) ui.pick = null;
 
   el.innerHTML = `
-  <div class="screen-head"><h1>Хаб</h1><p>Приёмка, триаж за ${ECON.triageSec} секунд, детали только под заказ</p></div>
+  <div class="screen-head"><h1>Хаб</h1><p>Приёмка, триаж за ${ECON.triageSec} секунд, детали только под заказ, сортировка по дереву разборки</p></div>
   <div class="kpis">
     ${kpi(tenge(ECON.deviceProcessing), 'обработка одного устройства', tenge(ECON.checkNow))}
     ${kpi(`≈ ${tenge(ECON.cellTenge)}`, `проверка ячейки, ${TEST30.seconds} с`, `${tenge(ECON.cellNowTenge)}, ${ECON.cellNowMin} мин`)}
@@ -61,7 +61,7 @@ export function render(el, st) {
     <section class="card span-12" id="test30" aria-label="ТЕСТ-30">${test30Card(sel)}</section>
     <section class="card span-12" aria-label="Заявки мастерских">${ordersCard(st)}</section>
     <section class="card span-12" aria-label="Банк деталей">${bankCard(st)}</section>
-    <section class="card span-12" aria-label="Сырьё и переработчики">${rawCard(st)}</section>
+    <section class="card span-12" id="wall" aria-label="Сортировочная стена">${wallCard(st)}</section>
     <section class="card span-12" aria-label="Маршрут сбора">${routeCard(st)}</section>
   </div>`;
 
@@ -72,25 +72,113 @@ export function render(el, st) {
 
 const kpi = (v, l, was) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${was ? `<div class="was">Было: ${was}</div>` : ''}</div>`;
 
-// Сырьё: что не спасли — копится по видам и уходит лицензированному переработчику по акту с весом
-function rawCard(st) {
-  const { stock, ids } = rawStock();
-  const acts = st.raw?.acts || [];
-  const kgAll = Object.values(stock).reduce((a, b) => a + b, 0);
-  const value = Object.entries(stock).reduce((a, [f, m]) => a + m * (RAW.find((r) => r.id === f)?.perKg || 0), 0);
-  return `<div class="card-title"><h2>Сырьё и переработчики</h2><span class="xs muted">Целое и детали — на вторую жизнь, остальное — лицензированному переработчику</span></div>
-  <div class="dash" style="gap:14px">
-    <div class="span-7">${RAW.map((r) => `<div class="frac">
-        <span><b>${esc(r.name)}</b></span><b class="num">${(stock[r.id] || 0).toFixed(2).replace('.', ',')} кг</b>
-        <span class="xs muted">${r.hazard ? 'Опасная фракция: металлический шкаф с песком, вывоз в спецупаковке' : `${num(r.perKg)} ₸ за кг · ≈ ${num(Math.round((stock[r.id] || 0) * r.perKg))} ₸`}</span>
-      </div>`).join('')}</div>
-    <div class="span-5 stack" style="align-content:start">
-      <div class="kpi"><div class="v num">${kgAll.toFixed(2).replace('.', ',')} кг</div><div class="l">готово к отгрузке · ≈ ${num(Math.round(value))} ₸ · вещей: ${ids.length}</div></div>
-      <button class="btn primary block" data-ship ${ids.length ? '' : 'disabled'}>${ICON.truck} Отгрузить переработчику</button>
-      ${acts.length ? `<div class="list">${acts.slice(0, 4).map((a) => `<div class="li"><div class="ico gray">${ICON.doc}</div><div class="grow small"><b>Акт ${a.no}</b><div class="xs muted">${dateTime(a.ts)} · ${String(a.kg).replace('.', ',')} кг · ${a.items} вещ.</div></div><div class="amt">${num(a.value)} ₸</div></div>`).join('')}</div>` : '<p class="xs muted">Актов пока нет. Сырьё появляется после триажа: «Сырьё» целиком, «Донор» — без снятых деталей.</p>'}
-      <p class="xs muted">За весь пилот по модели сырьё даёт ≈ ${num(RAW_PILOT_TENGE)} ₸. Сами не перерабатываем: только сортируем и отгружаем по договору с актом взвешивания.</p>
-    </div>
+// ── Этап 3: сортировочная стена ─────────────────────────────────────────────
+// Свет над ящиком показывает, куда положить часть: решает дерево разборки. Ящик копит партию для своего покупателя.
+const binDef = (id) => SORT_BINS.find((b) => b.id === id);
+const binName = (id) => binDef(id)?.label || id;
+const kgs = (v) => String(Math.round((v || 0) * 1000) / 1000).replace('.', ',');
+const mins = (v) => (v > 0 && v < 1 ? `${Math.round(v * 60)} с` : `${String(Math.round(v * 100) / 100).replace('.', ',')} мин`);
+const tg = (v) => `${v < 0 ? '−' : ''}${num(Math.round(Math.abs(v)))} ₸`;
+
+function wallCard(st) {
+  const bins = st.sort.bins;
+  const last = st.sort.last;
+  const waiting = st.hub.queue.filter(canSort).length;
+  return `<div class="card-title"><h2>Сортировочная стена</h2><button class="btn ${waiting ? 'primary' : 'ghost'} sm" data-sort-all ${waiting ? '' : 'disabled'}>${ICON.check} Рассортировать всё${waiting ? ` (${waiting})` : ''}</button></div>
+  <p class="small muted">Над каждым ящиком — лампа. Техник сканирует QR вещи, и загораются ящики, куда класть её части: решает дерево разборки, а не опыт. Батарея попадает только в шкаф с песком — в лом и в партии скупщиков её не положить. Ящик копит партию для своего покупателя.</p>
+  ${last ? `<p class="small mt-8" data-testid="wall-last"><b>${last.many ? `Рассортировано вещей: ${last.many}` : `${esc(last.deviceNo)} рассортировано`}</b> — горят ящики: ${last.bins.map((b, i) => `${i + 1}. ${esc(binName(b))}`).join(' · ')}</p>` : ''}
+  <div class="wall mt-12" data-testid="wall">${SORT_BINS.map((b) => binTile(b, bins[b.id], last)).join('')}</div>
+  <div class="dash mt-16">
+    <div class="span-7">${priceBoard(st)}</div>
+    <div class="span-5">${lotsList(st.sort.lots)}</div>
   </div>`;
+}
+
+function binTile(def, b, last) {
+  const kg = b?.kg || 0;
+  const i = last ? last.bins.indexOf(def.id) : -1;
+  const pct = def.lotKg ? Math.min(100, (kg / def.lotKg) * 100) : 0;
+  const price = def.byType ? 'цена по виду техники' : def.price ? `${num(def.price)} ₸/кг` : 'без оплаты';
+  return `<div class="bin ${i >= 0 ? 'lit' : ''} ${def.hazard ? 'hz' : ''}" data-bin="${def.id}">
+    <i class="lamp" aria-hidden="true"></i>${i >= 0 ? `<span class="bin-n">${i + 1}</span>` : ''}
+    <b class="small">${esc(def.label)}</b>
+    <span class="xs muted">${price} · ${esc(def.buyer)}</span>
+    <span class="small num"><b>${kgs(kg)} кг</b> · ≈ ${num(Math.round(b?.value || 0))} ₸${b?.liion ? ` · Li-ion: ${b.liion}` : ''}</span>
+    <div class="progress" style="height:5px" title="партия ${num(def.lotKg)} кг"><i style="width:${pct}%"></i></div>
+    <button class="btn sm ${kg ? 'ghost' : 'plain'}" data-lot="${def.id}" ${kg ? '' : 'disabled'}>Отгрузить партию</button>
+  </div>`;
+}
+
+function priceBoard(st) {
+  const flagOn = !!st.sort.flag;
+  return `<b class="small">Табло цен скупщиков</b>
+  <p class="xs muted">Медианы прайсов скупщиков Казахстана на OLX за 4–19.11.2026, металл — Актобе и Уральск. Цена меняется — дерево разборки само пересчитывает, что вынимать.</p>
+  <div class="table-wrap mt-8"><table data-testid="price-board">
+    <thead><tr><th>Ящик</th><th class="r">₸ за кг</th><th>Покупатель</th></tr></thead>
+    <tbody>${SORT_BINS.filter((b) => !b.byType).map((b) => `<tr><td class="small">${esc(b.label)}</td><td class="r">${b.id === SORT_FLAG.bin && flagOn ? `<b>${num(SORT_FLAG.price)}</b>` : num(b.price)}</td><td class="xs muted">${esc(b.buyer)}</td></tr>`).join('')}
+      <tr><td class="small">Целиком переработчику</td><td class="r small">${RAW.filter((r) => !r.hazard).map((r) => num(r.perKg)).join(' / ')}</td><td class="xs muted">телефоны / ноутбуки / экраны / мелкая / кабели — модель команды</td></tr>
+    </tbody></table></div>
+  <label class="check mt-12"><input type="checkbox" data-flag ${flagOn ? 'checked' : ''}><span class="small">Плата ноутбука «с чипом с жёлтым флажком» — ${num(SORT_FLAG.price)} ₸/кг вместо ${num(binDef(SORT_FLAG.bin).price)} (лучший прайс: Астана, 18.11). Техник видит чип — дерево пересчитывает, вынимать ли плату.</span></label>`;
+}
+
+function lotsList(lots) {
+  return `<b class="small">Партии с паспортом</b>
+  ${lots.length ? `<div class="stack mt-8" data-testid="lots">${lots.slice(0, 3).map(lotPassport).join('')}</div>`
+    : '<p class="xs muted mt-8">Партий пока нет. «Отгрузить партию» у ящика — и партия уходит покупателю с паспортом: вес, устройства, батареи, категории РОП для выплаты по EcoQolday.</p>'}`;
+}
+
+function lotPassport(l) {
+  const bat = l.bin === 'whole' ? (l.liion ? `Li-ion внутри устройств: ${l.liion} — упаковка UN3481` : 'Батарей внутри нет')
+    : l.bin === 'batt' ? 'Li-ion: металлический ящик с песком, перевозка по UN3480' : 'Батарей нет: свет над ящиком не загорается, пока батарея не в шкафу';
+  return `<div class="passport">
+    <div class="qr-sm">${qrSvg(`${APP_NAME}:lot:${l.no}`, { label: `QR партии ${l.no}` })}</div>
+    <div class="lines">
+      <span class="xs muted">${APP_NAME} · партия № ${l.no} · ${dateTime(l.ts)}</span>
+      <b>${esc(l.label)} · ${kgs(l.kg)} кг · ≈ ${num(l.value)} ₸</b>
+      <span>Покупатель: ${esc(l.buyer)}</span>
+      <span>Устройств: ${l.devices.length} (${l.devices.slice(0, 4).map(esc).join(', ')}${l.devices.length > 4 ? '…' : ''})</span>
+      <span>${bat}</span>
+      ${Object.entries(l.rop || {}).map(([c, kg]) => `<span class="xs muted">РОП: ${esc(c.split(':')[0])} — ${kgs(kg)} кг</span>`).join('')}
+    </div></div>`;
+}
+
+// ── Сортировка в карточке устройства: дерево разборки для этой вещи ─────────
+function sortRow(r) {
+  const icon = r.done2 ? '✓' : r.must ? '!' : r.do ? '✓' : '✗';
+  const [txt, cls] = r.done2 ? ['этап 2', 'on'] : r.must ? ['всегда', 'on'] : r.do ? ['делаем', 'on'] : ['не делаем', 'off'];
+  let how;
+  if (r.kind === 'open') {
+    how = r.do ? `${mins(r.min)} · вскрытие даёт ${signed(Math.round(r.gain))} ₸`
+      : `${mins(r.min)} · не окупается: ${signed(Math.round(r.gain))} ₸${r.threshold ? ` — окупится, если «${esc(binName(r.threshold.bin))}» дороже ${num(r.threshold.price)} ₸/кг` : ''}`;
+  } else if (r.kind === 'take') {
+    how = r.must ? `${mins(r.min)} · → «${esc(binName(r.to))}»${r.to === 'batt' ? ' — безопасность, вне экономики' : ''}`
+      : r.do ? `${mins(r.min)} · → «${esc(binName(r.to))}» · ${signed(Math.round(r.gain))} ₸ к продаже внутри корпуса` : `${mins(r.min)} · не окупается (${signed(Math.round(r.gain))} ₸) — остаётся внутри`;
+  } else {
+    how = `→ «${esc(binName(r.to))}» · ${kgs(r.kg)} кг · ${tg(r.value)}`;
+  }
+  return `<div class="plan-row" style="margin-left:${Math.min(r.depth, 3) * 14}px"><span class="lv">${icon}</span><div class="grow"><b class="small">${esc(r.label)}</b><div class="xs muted">${how}</div></div><span class="pst ${cls}">${txt}</span></div>`;
+}
+
+function sortBlock(it) {
+  const tag = it.tag || ui.pick?.tag || it.suggestedTag;
+  if (tag === 'whole') {
+    return `<div class="section-label mt-16">Сортировка</div><p class="small muted" data-testid="sort-plan">«Целое» не сортируем: вещь идёт на вторую жизнь — чистим и продаём или отдаём семье через акимат.</p>`;
+  }
+  const plan = sortPlanOf({ ...it, tag });
+  if (!plan) return '';
+  const kpi3 = (v, l, sub, best) => `<div class="kpi ${best ? 'best' : ''}"><div class="v num">${tg(v)}</div><div class="l">${l}</div><div class="was">${sub}</div></div>`;
+  const s = it.sorted;
+  const btn = s ? `<p class="small mt-12" data-testid="sorted"><b style="color:var(--tag-whole)">${ICON.check} Рассортировано</b> <span class="muted">· ${tg(s.value)} · ящики: ${s.bins.map((b) => esc(binName(b))).join(', ')}</span></p>`
+    : it.status !== 'triaged' ? '<p class="xs muted mt-8">Сортировка — после подтверждения бирки.</p>'
+    : `<button class="btn primary mt-12" data-sort="${it.id}">${ICON.check} Рассортировать: свет над ${new Set(plan.frags.map((f) => f.bin)).size} ящ.</button>`;
+  return `
+  <div class="section-label mt-16">Сортировка — разбираем, пока окупается</div>
+  <div class="formula">V(узел) = max(m × цена ящика, Σ V(частей) − t × ${EV.tengePerMinute})</div>
+  <p class="xs muted mt-8">Дерево разборки считается снизу вверх: каждую часть сравниваем «продать целиком» и «вскрыть». Цены — с табло скупщиков ниже. Что сняли на этапе 2, второй раз не считаем.${plan.soldered ? ' Паспорт Доктора: у MacBook память и SSD распаяны — снимать их нечего.' : ''}</p>
+  <div class="kpis mt-8" style="grid-template-columns:repeat(3,1fr)" data-testid="sort-kpis">${kpi3(plan.asIs, 'продать целиком', '0 мин')}${kpi3(plan.full, 'разобрать всё', mins(plan.fullMin))}${kpi3(plan.value, 'по дереву', mins(plan.minutes), true)}</div>
+  <div class="plan mt-8" data-testid="sort-plan">${plan.rows.map(sortRow).join('') || '<p class="xs muted">Вскрывать нечего: вещь целиком идёт в ящик.</p>'}</div>
+  <div class="row wrap mt-8" style="gap:6px" data-testid="sort-frags">${plan.frags.map((f) => `<span class="chip-bin ${f.bin === 'batt' ? 'hz' : ''}">${esc(binName(f.bin))} · ${kgs(f.kg)} кг${f.battery && f.bin !== 'batt' ? ' · Li-ion внутри' : ''}</span>`).join('')}</div>
+  ${btn}`;
 }
 
 function queueItem(it, sel) {
@@ -128,7 +216,8 @@ function detail(it) {
 
   ${planBlock(it)}
   ${it.type === 'laptop' ? askBlock(it) : ''}
-  ${ex?.parts?.length ? evTable(ex, it) : ''}`;
+  ${ex?.parts?.length ? evTable(ex, it) : ''}
+  ${sortBlock(it)}`;
 }
 
 // ── План проверки: лестница для любой вещи (README, «Матрица проверки») ─────
@@ -587,13 +676,28 @@ function bind(el, sel) {
       toast(`Заявка №${o.no}: ${part.name.toLowerCase()} · ${ex.model}`);
     };
   }
+  const flag = el.querySelector('[data-flag]');
+  if (flag) flag.onchange = (e) => { setSortFlag(e.target.checked); toast(e.target.checked ? `Плата с «жёлтым флажком»: ${num(SORT_FLAG.price)} ₸/кг — дерево пересчитано` : 'Цена платы — медиана прайсов'); };
   el.onclick = (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.select) { ui.pick = null; return selectHubItem(b.dataset.select); }
-    if ('ship' in b.dataset) {
-      const act = shipRaw();
-      if (act) toast(`Акт ${act.no}: ${String(act.kg).replace('.', ',')} кг сырья — переработчику`);
+    if (b.dataset.sort) {
+      const plan = sortItem(b.dataset.sort);
+      if (plan) {
+        toast(`Свет над ящиками: ${[...new Set(plan.frags.map((f) => binName(f.bin)))].join(', ')}`);
+        setTimeout(() => document.querySelector('#wall')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+      }
+      return;
+    }
+    if ('sortAll' in b.dataset) {
+      const n = sortAll();
+      if (n) toast(`Рассортировано вещей: ${n}`);
+      return;
+    }
+    if (b.dataset.lot) {
+      const lot = shipLot(b.dataset.lot);
+      if (lot) toast(`Партия ${lot.no}: ${binName(lot.bin)}, ${kgs(lot.kg)} кг — ${lot.buyer}`);
       return;
     }
     if (b.dataset.tag) { ui.pick = { itemId: sel.id, tag: b.dataset.tag }; return render(el, getState()); }

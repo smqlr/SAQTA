@@ -208,6 +208,150 @@ export const CHECK_PLAN = {
   ],
 };
 
+// ── Этап 3 «Сортировка» ─────────────────────────────────────────────────────
+// README, раздел «Этап 3. Сортировка»: у каждой цифры источник. Цены бинов — медианы прайсов скупщиков на OLX.kz
+// за 4–19.11.2026 (сами прайсы и расчёт медиан — sort/model/sort-model.mjs). «Целиком переработчику» — цены команды (RAW).
+// Массы — разборы и даташиты, время шагов — оценки, сверенные с кейсом: полная разборка ноутбука 25–30 мин.
+// size: L — контейнер 59×42×35 (6 шт в бюджете), S — контейнер 23×21×16 (20 шт в бюджете), pallet — у весов 300 кг,
+// cabinet — металлический шкаф с песком (в бюджете). lotKg — партия, которую везём скупщику.
+export const SORT_BINS = [
+  { id: 'ram', label: 'ОЗУ', price: 24000, size: 'S', buyer: 'скупщик плат', lotKg: 1 }, // README: медиана 5 прайсов, 17 500–26 500 ₸/кг
+  { id: 'boardPhone', label: 'Платы телефонов', price: 11000, size: 'S', buyer: 'скупщик плат', lotKg: 2 }, // README: медиана 5 прайсов, 10 000–13 000
+  { id: 'boardLaptop', label: 'Платы ноутбуков и SSD', price: 3000, size: 'L', buyer: 'скупщик плат', lotKg: 10 }, // README: медиана 5 прайсов, 2 200–4 000 (без «жёлтого флажка»)
+  { id: 'phones', label: 'Телефоны без батареи', price: 1500, size: 'L', buyer: 'скупщик плат', lotKg: 10 }, // README: «телефон в сборе без батареек и задней крышки», медиана 1 000–2 000
+  { id: 'cable', label: 'Провода и шнуры', price: 900, size: 'L', buyer: 'приём цветмета', lotKg: 20 }, // README: медный кабель, медиана нижних границ 800–1 000
+  { id: 'boardHome', label: 'Бытовые платы', price: 400, size: 'S', buyer: 'скупщик плат', lotKg: 10 }, // README: медиана 5 прайсов, 400–550
+  { id: 'motor', label: 'Моторы и ТЭНы', price: 250, size: 'L', buyer: 'приём металла', lotKg: 20 }, // README: электродвигатели «от 250 ₸/кг»
+  { id: 'alum', label: 'Алюминий', price: 610, size: 'S', buyer: 'приём металла', lotKg: 20 }, // README: медиана Актобе и Уральска, 600–740
+  { id: 'steel', label: 'Чёрный металл', price: 45, size: 'L', buyer: 'приём металла', lotKg: 100 }, // README: Актобе 40, Уральск 45 ₸/кг
+  { id: 'rest', label: 'Остаток: пластик, матрицы', price: 0, size: 'L', buyer: 'лицензированный переработчик', lotKg: 200 }, // README: берёт без оплаты, выплата РОП — цепочке
+  { id: 'whole', label: 'Целиком переработчику', byType: true, size: 'pallet', buyer: 'лицензированный переработчик', lotKg: 300 }, // док: цены RAW по видам техники; 300 кг — весы хаба
+  { id: 'batt', label: 'Аккумуляторы → шкаф', price: 0, size: 'cabinet', buyer: 'лицензированный переработчик Li-ion', lotKg: 30, hazard: true }, // док: отправка Li-ion и опасной фракции — 150 000 ₸ за пилот
+];
+// Плата ноутбука «с чипом с жёлтым флажком» — лучший прайс (Астана, OLX 18.11.2026); техник видит чип и включает цену на табло
+export const SORT_FLAG = { bin: 'boardLaptop', price: 5500 }; // README: прайс OLX № 345707504 — 5 500 ₸/кг с флажком, 3 000 без
+
+// Деревья разборки. Узел продаётся целиком в свой бин (sell) или вскрывается:
+//   access — открыли корпус: каждую часть берём (take, мин) или оставляем внутри, остаток идёт в бин узла;
+//   split — разборка «всё или ничего»: шаг разделяет узел на части;
+//   must — после вскрытия берём всегда (батарея — в шкаф, отщёлкнутая крышка — в остаток).
+// kg — только у листьев: масса узла = сумма листьев (README: таблица масс с источниками). part — деталь этапа 2
+// (сняли под заказ — в дереве её уже нет), did — шаги, которые этап 2 при этом уже сделал (второй раз не платим).
+export const SORT_TREES = {
+  laptop: {
+    id: 'laptop', name: 'Ноутбук', sell: 'whole', battery: true,
+    access: { min: 1, label: 'Снять нижнюю крышку' }, // README: оценка; вместе с шагами ниже — 26 мин полной разборки (кейс: 25–30)
+    children: [
+      { id: 'lpBat', name: 'Батарея', kg: 0.171, take: 0.5, sell: 'batt', must: true, cells: { part: 'ячейк', kg: 0.171, did: ['laptop'] } }, // README: 3 × 18650 по 47 г (даташиты 45–49 г) + корпус и BMS 30 г; ячейки сняли на этапе 2 — пакет уже вынут
+      { id: 'lpRam', name: 'ОЗУ', kg: 0.008, take: 0.25, sell: 'ram', part: 'памят', did: ['laptop'] }, // README: модуль SO-DIMM ≈ 8 г — оценка
+      { id: 'lpSsd', name: 'SSD', kg: 0.007, take: 0.25, sell: 'boardLaptop', part: 'ssd', did: ['laptop'] }, // README: M.2 2280 ≈ 7 г — оценка; данные стёрты на этапе 2
+      {
+        id: 'lpCore', name: 'Ноутбук без батареи, ОЗУ и SSD', take: 0, sell: 'whole', // README: сам корпус — снимать нечего, 0 мин
+        split: { min: 3, label: 'Вынуть плату, снять радиатор' }, // README: оценка; скупщик берёт платы без железа и алюминиевых радиаторов
+        children: [
+          { id: 'lpBoard', name: 'Материнская плата', kg: 0.15, sell: 'boardLaptop' }, // README: оценка; порог окупаемости — в README
+          {
+            id: 'lpShell', name: 'Корпус, крышка, матрица', sell: 'rest',
+            split: { min: 21, label: 'Разобрать корпус и крышку до материалов' }, // README: остаток до 26 мин полной разборки
+            children: [
+              { id: 'lpPanel', name: 'Матрица', kg: 0.35, sell: 'rest' }, // README: оценка
+              { id: 'lpAl', name: 'Рамки и петли', kg: 0.12, sell: 'alum' }, // README: оценка
+              { id: 'lpSteel', name: 'Винты и скобы', kg: 0.08, sell: 'steel' }, // README: оценка
+              { id: 'lpWires', name: 'Шлейфы и динамики', kg: 0.05, sell: 'cable' }, // README: оценка
+              { id: 'lpPlastic', name: 'Пластик и клавиатура', kg: 1.264, sell: 'rest' }, // README: остаток до 2,2 кг (док: ноутбук 2,2 кг)
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  phone: {
+    id: 'phone', name: 'Смартфон', sell: 'whole', battery: true,
+    access: { min: 1, label: 'Снять заднюю крышку' }, // README: оценка — клей; граница окупаемости 1,45 мин вместе с батареей
+    children: [
+      { id: 'phBat', name: 'Аккумулятор', kg: 0.032, take: 0.5, sell: 'batt', must: true }, // README: 18% массы — разбор iPhone 6s, 25 г из 142 г
+      { id: 'phBack', name: 'Задняя крышка', kg: 0.018, take: 0, sell: 'rest', must: true }, // README: 10% — оценка
+      {
+        id: 'phBody', name: 'Телефон без батареи и крышки', take: 0, sell: 'phones', // README: сам корпус — 0 мин
+        split: { min: 3, label: 'Вынуть плату, снять стальные экраны' }, // README: оценка
+        children: [
+          { id: 'phBoard', name: 'Плата', kg: 0.03, sell: 'boardPhone' }, // README: платы — 20,6% массы телефона (EPA по данным Swico) = 37 г, без стальных экранов ≈ 30 г
+          { id: 'phScreen', name: 'Экран', kg: 0.04, sell: 'rest', part: 'экран' }, // README: оценка
+          { id: 'phCam', name: 'Камеры', kg: 0.003, sell: 'rest', part: 'камер', did: ['phone'] }, // README: оценка
+          { id: 'phFrame', name: 'Рамка, динамики, кнопки', kg: 0.057, sell: 'rest' }, // README: остаток до 0,18 кг (док: телефон 0,18 кг)
+        ],
+      },
+    ],
+  },
+  phoneButton: {
+    id: 'phoneButton', name: 'Кнопочный телефон', sell: 'whole', battery: true,
+    access: { min: 0.1, label: 'Снять крышку на защёлке' }, // README: оценка — 6 с
+    children: [
+      { id: 'pbBat', name: 'Аккумулятор', kg: 0.017, take: 0.05, sell: 'batt', must: true }, // README: Nokia 105 — 73 г, батарея BL-5CB ≈ 17 г (оценка)
+      { id: 'pbBack', name: 'Крышка', kg: 0.008, take: 0, sell: 'rest', must: true }, // README: оценка
+      { id: 'pbBody', name: 'Телефон без батареи и крышки', kg: 0.05, take: 0, sell: 'phones' }, // README: остаток до 75 г
+    ],
+  },
+  screen: {
+    id: 'screen', name: 'Монитор или телевизор', sell: 'whole',
+    access: { min: 0, label: 'Без вскрытия' }, // README: шнур режем снаружи, корпус не вскрываем
+    children: [
+      { id: 'scCord', name: 'Сетевой шнур', kg: 0.1, take: 0.15, sell: 'cable', label: 'Отрезать или отсоединить сетевой шнур' }, // README: оценка; 9 с
+      {
+        id: 'scBody', name: 'Экран без шнура', take: 0, sell: 'whole', // README: сам корпус — 0 мин
+        split: { min: 8, label: 'Снять заднюю крышку, платы и шасси' }, // README: оценка
+        children: [
+          { id: 'scBoards', name: 'Платы питания и управления', kg: 0.35, sell: 'boardHome' }, // README: оценка
+          { id: 'scSteel', name: 'Стальное шасси', kg: 1.2, sell: 'steel' }, // README: оценка
+          { id: 'scRest', name: 'Матрица, подсветка, пластик', kg: 3.35, sell: 'rest' }, // README: остаток до 5 кг (док: мониторы и ТВ 5 кг)
+        ],
+      },
+    ],
+  },
+  small: {
+    id: 'small', name: 'Мелкая бытовая со шнуром', sell: 'whole',
+    access: { min: 0, label: 'Без вскрытия' }, // README: шнур режем снаружи, корпус не вскрываем
+    children: [
+      { id: 'smCord', name: 'Сетевой шнур', kg: 0.085, take: 0.15, sell: 'cable', label: 'Отрезать сетевой шнур' }, // README: ПВС 3×0,75 мм², 1,2 м × 71 г/м; 9 с кусачками
+      {
+        id: 'smBody', name: 'Корпус без шнура', take: 0, sell: 'whole', // README: сам корпус — 0 мин
+        split: { min: 6, label: 'Разобрать: мотор или ТЭН, плата, металл' }, // README: оценка
+        children: [
+          { id: 'smMotor', name: 'Мотор или ТЭН', kg: 0.35, sell: 'motor' }, // README: оценка
+          { id: 'smBoard', name: 'Плата управления', kg: 0.05, sell: 'boardHome' }, // README: оценка
+          { id: 'smSteel', name: 'Металл корпуса', kg: 0.3, sell: 'steel' }, // README: оценка
+          { id: 'smPlastic', name: 'Пластик', kg: 0.715, sell: 'rest' }, // README: остаток до 1,5 кг (док: мелкая бытовая 1,5 кг)
+        ],
+      },
+    ],
+  },
+  gadget: {
+    id: 'gadget', name: 'Гаджет с аккумулятором', sell: 'whole', battery: true,
+    access: { min: 2, label: 'Вскрыть корпус: клей и защёлки' }, // README: оценка
+    children: [
+      { id: 'gdBat', name: 'Аккумулятор', kg: 0.03, take: 0.5, sell: 'batt', must: true }, // README: оценка
+      { id: 'gdBody', name: 'Корпус с платой', kg: 0.27, take: 0, sell: 'whole' }, // README: оценка — наушники, колонка, часы ≈ 0,3 кг
+    ],
+  },
+  cable: {
+    id: 'cable', name: 'Зарядка с проводом', sell: 'whole',
+    split: { min: 0.1, label: 'Отрезать провод от блока' }, // README: оценка — 6 с
+    children: [
+      { id: 'cbCord', name: 'Провод', kg: 0.09, sell: 'cable' }, // README: 45% массы — оценка
+      { id: 'cbBrick', name: 'Блок зарядки', kg: 0.11, sell: 'rest' }, // README: остаток до 0,2 кг (док: зарядки и кабели 0,2 кг)
+    ],
+  },
+  cells: { id: 'cells', name: 'Аккумуляторы', sell: 'batt', typeKg: true }, // вздутая батарея или пачка АА — сразу в шкаф; масса — по виду техники
+};
+// Какое дерево у вещи: по виду техники, а у части примеров — своё (кнопочный телефон, гаджеты с батареей, аккумуляторы)
+export const SORT_TREE_OF = { phone: 'phone', laptop: 'laptop', screen: 'screen', small: 'small', cable: 'cable' };
+export const SORT_TREE_BY_EXAMPLE = { nokia105: 'phoneButton', pda: 'phoneButton', headphones: 'gadget', speaker: 'gadget', watch: 'gadget', aa: 'cells', scooter: 'cells' };
+// Категория РОП для паспорта партии «Целиком переработчику» (док: таблица «Где лежат 4 000 тонн», ставки ₸ за т)
+export const SORT_ROP = {
+  phone: 'Телефоны, ноутбуки, роутеры', laptop: 'Телефоны, ноутбуки, роутеры',
+  screen: 'Телевизоры и мониторы', small: 'Мелкая бытовая: чайники, пылесосы, микроволновки, игрушки', cable: 'Мелкая бытовая: чайники, пылесосы, микроволновки, игрушки',
+};
+
 // ── Банк деталей ────────────────────────────────────────────────────────────
 export const PARTS = {
   warrantyDays: 30, // док: QR-паспорт и гарантия 30 дней

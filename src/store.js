@@ -2,16 +2,17 @@
 // Хранится в localStorage (если доступен), иначе в памяти. «Сбросить демо» возвращает пресет.
 import {
   BONUS, DEVICE_TYPES, EXAMPLES, WALLET, WEIGHT_KG, PARTS, SAMPLE_PASSPORT, SAMPLE_TAG_NO,
-  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, PILOT, SHOP_ITEMS, TYPE_KG, RAW, DONOR_PARTS_SHARE,
+  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, PILOT, SHOP_ITEMS, SORT_BINS, SORT_FLAG, SORT_ROP,
 } from './data.js';
 import { LEAGUE, pointById } from './geo/points.js';
 import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
 import { suggestFromPassport, passportTitle } from './lib/doctor.js';
+import { planFor, binOf } from './lib/sort.js';
 import { DAY, pad, num } from './lib/format.js';
 
 const KEY = 'qaita-v4';
-const VERSION = 5; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных; 5: этап 2 — паспорт Доктора, заявки Lenovo
+const VERSION = 6; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных; 5: этап 2 — паспорт Доктора, заявки Lenovo; 6: этап 3 — сортировка
 const listeners = new Set();
 let state;
 
@@ -102,7 +103,7 @@ export function initialState(preset = 'ready') {
     certs: [],
     osi: { balance: 0, tags: [], home: null },
     test30Runs: 0,
-    raw: { acts: [], shippedIds: [] },
+    sort: { bins: {}, lots: [], seq: 0, flag: false, last: null },
   };
   if (preset === 'ready') {
     // Решение команды 18.11: в демо-кошельке «сдача ноутбука +200» и «роялти +1 120» (итого 1 320)
@@ -438,35 +439,75 @@ export function osiPickup(tagId) {
   commit({ type: 'osi-pickup', tag: t, bonus });
 }
 
-// ── Сырьё: что не спасти — лицензированному переработчику ───────────────────
-// Целое — на вторую жизнь (в сырьё не идёт), с «Донора» сняты детали (≈ 12% массы), «Опасно» — Li-ion в спецупаковке.
-export function rawStock() {
-  const shipped = new Set(state.raw?.shippedIds || []);
-  const stock = {};
-  const ids = [];
-  for (const it of state.hub.queue) {
-    if (it.status !== 'triaged' || shipped.has(it.id)) continue;
-    const kg = TYPE_KG[it.type] ?? WEIGHT_KG.hubAvg;
-    const m = it.tag === 'whole' ? 0 : it.tag === 'donor' ? kg * (1 - DONOR_PARTS_SHARE) : kg;
-    if (!m) continue;
-    const frac = it.tag === 'danger' ? 'liion' : RAW.some((r) => r.id === it.type) ? it.type : 'small';
-    stock[frac] = Math.round(((stock[frac] || 0) + m) * 1000) / 1000;
-    ids.push(it.id);
+// ── Этап 3: сортировка ──────────────────────────────────────────────────────
+// План для вещи считает дерево разборки (src/lib/sort.js): детали этапа 2 уже сняты, цены — с табло хаба.
+// Целое — на вторую жизнь, его не сортируем. Остальное раскладывается по бинам стены, бин копит партию.
+const r3 = (v) => Math.round(v * 1000) / 1000;
+export const sortPrices = () => (state.sort?.flag ? { [SORT_FLAG.bin]: SORT_FLAG.price } : {});
+const partsOf = (deviceNo) => state.bank.filter((p) => p.fromDevice === deviceNo).map((p) => p.part);
+export function sortPlanOf(itemOrId) {
+  const it = typeof itemOrId === 'string' ? state.hub.queue.find((x) => x.id === itemOrId) : itemOrId;
+  if (!it) return null;
+  return planFor({ ...it, tag: it.tag || it.suggestedTag }, { bankParts: partsOf(it.deviceNo), prices: sortPrices() });
+}
+export const canSort = (it) => !!it && it.status === 'triaged' && !it.sorted && it.tag !== 'whole';
+export function sortItem(itemId, { silent = false } = {}) {
+  const it = state.hub.queue.find((x) => x.id === itemId);
+  if (!canSort(it)) return null;
+  const plan = sortPlanOf(it);
+  const bins = state.sort.bins;
+  for (const f of plan.frags) {
+    const b = bins[f.bin] || (bins[f.bin] = { kg: 0, value: 0, devices: [], liion: 0, rop: {} });
+    b.kg = r3(b.kg + f.kg);
+    b.value = Math.round((b.value + f.value) * 100) / 100;
+    if (!b.devices.includes(it.deviceNo)) b.devices.push(it.deviceNo);
+    if (f.bin === 'whole') {
+      if (f.battery) b.liion += 1;
+      const cat = SORT_ROP[it.type] || SORT_ROP.small;
+      b.rop[cat] = r3((b.rop[cat] || 0) + f.kg);
+    }
   }
-  return { stock, ids };
+  const lit = [...new Set(plan.frags.map((f) => f.bin))];
+  it.sorted = { ts: now(), value: plan.value, asIs: plan.asIs, minutes: plan.minutes, bins: lit, frags: plan.frags.map((f) => ({ bin: f.bin, kg: f.kg, value: f.value })) };
+  state.sort.last = { itemId: it.id, deviceNo: it.deviceNo, bins: lit, ts: now() };
+  if (it.donationId) {
+    const where = plan.frags.map((f) => `${f.name.split(':')[0].toLowerCase()} → «${binOf(f.bin).label}»`).join(', ');
+    note('Устройство рассортировано', `${it.model} (${it.deviceNo}): ${where}.${plan.frags.some((f) => f.bin === 'batt') ? ' Батарея — в шкаф с песком, в общий лом не попадёт.' : ''}`, 'info');
+  }
+  if (!silent) commit({ type: 'sort', item: it });
+  return plan;
 }
-export function shipRaw() {
-  const { stock, ids } = rawStock();
-  if (!ids.length) return null;
-  state.raw = state.raw || { acts: [], shippedIds: [] };
-  const kg = Object.values(stock).reduce((a, b) => a + b, 0);
-  const value = Object.entries(stock).reduce((a, [f, m]) => a + m * (RAW.find((r) => r.id === f)?.perKg || 0), 0);
-  const act = { id: uid(), no: `R-${pad(state.raw.acts.length + 1, 4)}`, ts: now(), stock, kg: Math.round(kg * 100) / 100, value: Math.round(value), items: ids.length };
-  state.raw.acts.unshift(act);
-  state.raw.shippedIds.push(...ids);
-  commit({ type: 'raw-ship', act });
-  return act;
+export function sortAll() {
+  const ids = state.hub.queue.filter(canSort).map((x) => x.id);
+  ids.forEach((id) => sortItem(id, { silent: true }));
+  if (ids.length) {
+    const last = state.hub.queue.find((x) => x.id === ids[ids.length - 1]);
+    state.sort.last = { itemId: last.id, deviceNo: last.deviceNo, bins: [...new Set(ids.flatMap((id) => state.hub.queue.find((x) => x.id === id).sorted.bins))], ts: now(), many: ids.length };
+    commit({ type: 'sort-all', n: ids.length });
+  }
+  return ids.length;
 }
+export function setSortFlag(on) {
+  state.sort.flag = !!on;
+  commit({ type: 'sort-flag', on: state.sort.flag });
+}
+// Партия: всё, что накопилось в бине, уходит покупателю с паспортом партии (QR, вес, устройства, Li-ion, категории РОП)
+export function shipLot(binId) {
+  const b = state.sort.bins[binId];
+  if (!b || b.kg <= 0) return null;
+  const def = binOf(binId);
+  state.sort.seq += 1;
+  const lot = {
+    id: uid(), no: `P-${pad(state.sort.seq, 4)}`, bin: binId, label: def.label, buyer: def.buyer, ts: now(),
+    kg: b.kg, value: Math.round(b.value), devices: b.devices.slice(), liion: b.liion, rop: { ...b.rop },
+  };
+  state.sort.lots.unshift(lot);
+  delete state.sort.bins[binId];
+  commit({ type: 'lot', lot });
+  return lot;
+}
+export const lotTargetKg = (binId) => binOf(binId)?.lotKg ?? null;
+export const SORT_BIN_IDS = SORT_BINS.map((b) => b.id);
 
 export const SAMPLE_TAG = SAMPLE_TAG_NO;
 export const PARTS_DAYS = PARTS;

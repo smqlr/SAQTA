@@ -6,7 +6,8 @@
     "build": "node build.mjs",
     "test": "node tests/e2e.mjs",
     "check-data": "node tests/check-data.mjs",
-    "check-stage": "node tests/check-stage.mjs"
+    "check-stage": "node tests/check-stage.mjs",
+    "sort-stage": "node tests/sort-stage.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {
