@@ -36,6 +36,13 @@
   --art-screen: #2c2c2e;
   --art-screen-on: #d9efe1;
 
+  /* Карта: тихая подложка (палитры плиток — в src/lib/map/basemap.js) */
+  --map-land: #f4f4f1;
+  --map-place: #a8a8ad;
+  --map-place-major: #95959a;
+  --map-halo: #f4f4f1;
+  --map-attrib: rgba(244, 244, 241, .85);
+
   --radius: 14px;
   --radius-sm: 10px;
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, .14), 0 2px 6px rgba(0, 0, 0, .06);
@@ -80,6 +87,12 @@
   --art-fill: #2c2c2e;
   --art-screen: #0b0b0c;
   --art-screen-on: #1d4a30;
+
+  --map-land: #1a1a1c;
+  --map-place: #6a6a6f;
+  --map-place-major: #7c7c81;
+  --map-halo: #1a1a1c;
+  --map-attrib: rgba(26, 26, 28, .85);
 
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .4);
 }
@@ -484,6 +497,10 @@ tr.total td { font-weight: 600; border-top: .5px solid var(--border); }
 .menu button:hover { background: var(--fill-2); }
 .menu button > svg { width: 20px; height: 20px; flex: none; color: var(--muted); }
 .menu .menu-cap { padding: 6px 16px 8px; font-size: 13px; color: var(--muted); }
+.menu .menu-theme { display: grid; gap: 8px; padding: 10px 16px; }
+.menu .seg button { display: block; width: auto; text-align: center; padding: 6px 8px; }
+.menu .seg button:hover { background: transparent; }
+.menu .seg button[aria-pressed="true"] { background: var(--surface); }
 @media (max-width: 600px) { .menu { left: 12px; right: 12px; width: auto; } }
 .menu hr { border: 0; border-top: .5px solid var(--separator); margin: 6px 0; }
 .switch { position: relative; width: 51px; height: 31px; border-radius: 999px; background: #e9e9eb; flex: none; transition: background .2s; }
@@ -505,8 +522,8 @@ tr.total td { font-weight: 600; border-top: .5px solid var(--border); }
 .map-card.tall { height: 440px; }
 @media (max-width: 600px) { .map-card.tall { height: 360px; } }
 .map-slot, .qmap { width: 100%; height: 100%; }
-.qmap { background: #f3f2ee; font: inherit; }
-.qmap .leaflet-control-attribution { font-size: 10.5px; background: rgba(255, 255, 255, .78); color: var(--muted); padding: 1px 6px; border-radius: 6px 0 0 0; }
+.qmap { background: var(--map-land); font: inherit; }
+.qmap .leaflet-control-attribution { font-size: 10.5px; background: var(--map-attrib); color: var(--muted); padding: 1px 6px; border-radius: 6px 0 0 0; }
 .qmap .leaflet-control-attribution a { color: var(--muted); }
 .qmap .leaflet-bar { border: 0; border-radius: 10px; box-shadow: 0 1px 4px rgba(0, 0, 0, .16); overflow: hidden; }
 .qmap .leaflet-bar a { width: 34px; height: 34px; line-height: 34px; color: var(--text); border-bottom: .5px solid var(--separator); font: 400 20px/34px var(--font); }
@@ -518,6 +535,8 @@ tr.total td { font-weight: 600; border-top: .5px solid var(--border); }
 .qpin svg { width: 15px; height: 15px; }
 .qpin.sel { width: 38px; height: 38px; border-width: 3px; box-shadow: 0 3px 10px rgba(0, 0, 0, .35); }
 .qpin.sel svg { width: 19px; height: 19px; }
+/* Второстепенная точка: только цвет вида, без значка */
+.qpin.mini { width: 14px; height: 14px; border-width: 2px; box-shadow: 0 1px 2px rgba(0, 0, 0, .28); }
 .qpin-n { position: absolute; top: -8px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #1c1c1e; color: #fff; font: 700 11px/18px var(--font); text-align: center; border: 1.5px solid #fff; }
 .p-school { background: #1d8a4a; }
 .p-box { background: #0a6cdf; }
@@ -530,9 +549,9 @@ tr.total td { font-weight: 600; border-top: .5px solid var(--border); }
 .p-home { background: #0a6cdf; }
 .qme { background: #0a84ff; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 6px rgba(10, 132, 255, .2), 0 1px 3px rgba(0, 0, 0, .3); }
 .qplace { background: none; border: 0; pointer-events: none; }
-.qplace span { display: block; transform: translate(-50%, -50%); white-space: nowrap; font: 600 11.5px/1 var(--font); color: #6c6c70; letter-spacing: .01em;
-  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff; }
-.qplace.r1 span { font-size: 12.5px; color: #58585d; text-transform: uppercase; letter-spacing: .04em; }
+.qplace span { display: block; transform: translate(-50%, -50%); white-space: nowrap; font: 500 11px/1 var(--font); color: var(--map-place); letter-spacing: .01em;
+  text-shadow: 0 0 2px var(--map-halo), 0 0 2px var(--map-halo), 0 0 3px var(--map-halo), 0 0 4px var(--map-halo); }
+.qplace.r1 span { font-size: 11.5px; font-weight: 600; color: var(--map-place-major); text-transform: uppercase; letter-spacing: .05em; }
 .qtip { background: #fff; border: 0; border-radius: 10px; box-shadow: var(--shadow-pop); padding: 7px 10px; font: 13px/1.35 var(--font); color: var(--text); }
 .qtip::before { display: none; }
 .leaflet-container .leaflet-control-attribution, .leaflet-container { font-family: var(--font); }

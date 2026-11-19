@@ -169,7 +169,11 @@ function attachMap(el, counts, layers) {
     { ...AKIMAT_PT, id: 'akimat', name: AKIMAT_PT.name },
     ...LANDFILLS.map((l, i) => ({ ...l, id: `lf${i}`, name: l.official ? `Полигон ТБО «${l.official}»` : 'Полигон ТБО' })),
   ];
-  setPins(m, 'points', [...pts, ...layers.pickups, ...layers.osi, ...layers.reverse]);
+  // Главное — где уже что-то есть: пункты со сданными вещами, хаб, полигон, акимат и все заявки.
+  // Пустые школы и боксы — маленькие точки.
+  const all = [...pts, ...layers.pickups, ...layers.osi, ...layers.reverse];
+  const focusIds = new Set(all.filter((p) => !(p.kind === 'school' || p.kind === 'con' || p.kind === 'university') || p.count > 0).map((p) => p.id));
+  setPins(m, 'points', all, { focusIds });
   setArea(m, 'landfill', LANDFILLS[0] ? [LANDFILLS[0].lat, LANDFILLS[0].lon] : null, { label: 'Полигон ТБО' });
   if (!ui.fitted) { ui.fitted = true; fitTo(m, [...LEAGUE, ...BOXES, ...LANDFILLS], { maxZoom: 13, padding: 20 }); }
 }

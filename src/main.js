@@ -9,6 +9,7 @@ import * as hub from './screens/hub.js';
 import * as akimat from './screens/akimat.js';
 import { toast } from './lib/ui.js';
 import { initInstall, install, isStandalone, bannerWanted, dismissBanner, onInstallChange } from './lib/install.js';
+import { refreshMaps } from './lib/map/view.js';
 
 // Порядок экранов — из плана команды: Житель · Кошелёк · Магазин · ОСИ · Хаб · Акимат
 const SCREENS = [
@@ -20,21 +21,27 @@ const SCREENS = [
   { id: 'akimat', label: 'Акимат', icon: ICON.akimat, mod: akimat },
 ];
 
-// ── Тема: светлая по умолчанию, тёмная — из меню ⋯; выбор хранится в браузере ──
-const THEME_KEY = 'qaita-theme';
+// ── Тема: по умолчанию как в системе (телефон или браузер); в меню ⋯ можно выбрать светлую или тёмную ──
+const THEME_KEY = 'qaita-theme-mode';
+const THEME_MODES = [['system', 'Системная'], ['light', 'Светлая'], ['dark', 'Тёмная']];
 const THEME_BAR = { light: '#f9f9fb', dark: '#161618' };
-function savedTheme() { try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch { return 'light'; } }
-function applyTheme(t) {
+const systemDark = matchMedia('(prefers-color-scheme: dark)');
+try { localStorage.removeItem('qaita-theme'); } catch { /* старый переключатель: все начинают с системной темы */ }
+let mode = (() => {
+  try { const v = localStorage.getItem(THEME_KEY); return v === 'light' || v === 'dark' ? v : 'system'; } catch { return 'system'; }
+})();
+const themeMode = () => mode;
+const resolvedTheme = () => (mode === 'system' ? (systemDark.matches ? 'dark' : 'light') : mode);
+function applyTheme() {
+  const t = resolvedTheme();
+  if (document.documentElement.dataset.theme === (t === 'dark' ? 'dark' : undefined)) return false;
   if (t === 'dark') document.documentElement.dataset.theme = 'dark';
   else delete document.documentElement.dataset.theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_BAR[t]);
   document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', t);
+  return true;
 }
-function setTheme(t) {
-  try { localStorage.setItem(THEME_KEY, t); } catch { /* без хранилища тема живёт до перезагрузки */ }
-  applyTheme(t);
-}
-applyTheme(savedTheme());
+applyTheme();
 
 document.title = APP_NAME;
 const app = document.getElementById('app');
@@ -93,6 +100,23 @@ document.querySelectorAll('.tabs, .tabbar').forEach((nav) => nav.addEventListene
 window.addEventListener('hashchange', route);
 subscribe(() => renderCurrent(false));
 
+// Смена темы: графики и плитки карты берут цвета темы при отрисовке, поэтому перерисовываем их
+function themeChanged() {
+  if (!applyTheme()) return;
+  renderCurrent();
+  refreshMaps();
+}
+function setThemeMode(next) {
+  mode = next;
+  try {
+    if (next === 'system') localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, next);
+  } catch { /* без хранилища выбор живёт до перезагрузки */ }
+  themeChanged();
+}
+// Телефон перешёл в ночной режим — при «Системной» приложение меняет тему сразу
+systemDark.addEventListener?.('change', () => { if (themeMode() === 'system') themeChanged(); });
+
 // ── Меню настроек ──────────────────────────────────────────────────────
 const menuBtn = document.getElementById('menuBtn');
 function closeMenu() { document.querySelector('.menu')?.remove(); menuBtn.setAttribute('aria-expanded', 'false'); }
@@ -100,14 +124,16 @@ menuBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   if (document.querySelector('.menu')) return closeMenu();
   const st = getState();
-  const dark = savedTheme() === 'dark';
   const m = document.createElement('div');
   m.className = 'menu';
   m.setAttribute('role', 'menu');
   m.innerHTML = `
     <div class="menu-cap">${APP_NAME} · ${SLOGAN}</div>
     <button data-act="tazaru" role="menuitemcheckbox" aria-checked="${st.tazaru}"><div class="grow"><b>Неделя Тазару күні</b><div class="xs muted">Бонусы × 2 за сданную технику</div></div><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
-    <button data-act="theme" role="menuitemcheckbox" aria-checked="${dark}"><div class="grow"><b>Тёмная тема</b><div class="xs muted">Тёмный фон для вечера и сцены</div></div><span class="switch ${dark ? 'on' : ''}"></span></button>
+    <div class="menu-theme">
+      <div><b>Оформление</b><div class="xs muted">Системная — как в телефоне или браузере</div></div>
+      <div class="seg block" role="group" aria-label="Оформление">${THEME_MODES.map(([v, l]) => `<button data-theme-mode="${v}" aria-pressed="${themeMode() === v}">${l}</button>`).join('')}</div>
+    </div>
     ${isStandalone() ? '' : `<hr>
     <button data-act="install" role="menuitem">${ICON.install}<div><b>Установить на телефон</b><div class="xs muted">Иконка на рабочем столе, без адресной строки</div></div></button>`}
     <hr>
@@ -119,14 +145,13 @@ menuBtn.addEventListener('click', (e) => {
     const b = ev.target.closest('button');
     if (!b) return;
     ev.stopPropagation();
+    if (b.dataset.themeMode) { // меню остаётся открытым: видно, как меняется оформление
+      setThemeMode(b.dataset.themeMode);
+      m.querySelectorAll('[data-theme-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      return;
+    }
     const act = b.dataset.act;
     if (act === 'install') install();
-    if (act === 'theme') {
-      const next = savedTheme() === 'dark' ? 'light' : 'dark';
-      setTheme(next);
-      renderCurrent(); // графики и карта берут цвета темы при отрисовке
-      toast(next === 'dark' ? 'Тёмная тема' : 'Светлая тема');
-    }
     if (act === 'tazaru') { setTazaru(!getState().tazaru); toast(getState().tazaru ? 'Тазару күні: бонусы × 2' : 'Тазару күні выключен'); }
     if (act === 'clean' || act === 'ready') {
       SCREENS.forEach((s) => s.mod.home?.());

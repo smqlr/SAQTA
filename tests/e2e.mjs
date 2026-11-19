@@ -35,7 +35,7 @@ async function launch() {
   try { return await chromium.launch(); } catch { return chromium.launch({ channel: 'chrome' }); }
 }
 const browser = await launch();
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, colorScheme: 'light' });
 const external = [];
 await ctx.route('**/*', (r) => {
   const u = r.request().url();
@@ -50,6 +50,20 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 
 const go = async (screen) => { await page.evaluate((s) => { location.hash = s; }, screen); await page.waitForTimeout(250); };
 const shot = async (name) => { if (SHOTS) await page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage: true }); };
+// Плитки карты: средняя яркость (0–255) и доля насыщенных пикселей (жёлтые дороги, яркая зелень)
+const tileStats = (p) => p.$$eval('.qmap canvas.leaflet-tile', (cs) => {
+  let n = 0, sat = 0, lum = 0;
+  for (const c of cs) {
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    for (let i = 0; i < d.length; i += 64) {
+      const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+      n++;
+      lum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      if (mx > 40 && (mx - mn) / mx > 0.25) sat++;
+    }
+  }
+  return { lum: n ? lum / n : 0, sat: n ? sat / n : 0 };
+});
 const balance = async () => { await go('wallet'); return digits(await page.textContent('[data-testid="balance"]')); };
 const reset = async (preset) => {
   await page.click('#menuBtn');
@@ -97,6 +111,11 @@ const painted = await page.$$eval('.qmap canvas.leaflet-tile', (cs) => cs.filter
   return seen.size > 4; // улицы, дома, зелень — не однотонная заливка
 }).length);
 ok(painted > 0, `плитки карты нарисованы из встроенных данных OSM (${painted})`);
+const quiet = await tileStats(page);
+ok(quiet.sat < 0.01,`подложка тихая: ярких пикселей ${(quiet.sat * 100).toFixed(1)} % (нет жёлтых дорог)`);
+const pinsFull = (await page.$$('.qmap .qpin:not(.mini)')).length;
+const pinsMini = (await page.$$('.qmap .qpin.mini')).length;
+ok(pinsFull >= 4 && pinsFull <= 5 && pinsFull + pinsMini === 40, `видно главное: ${pinsFull} ближайшие школы метками, ещё ${pinsMini} — точками`);
 const dists = await page.$$eval('.pick-row', (rows) => rows.map((r) => {
   const t = r.querySelector('.nowrap').textContent.replace(/\s/g, '').replace(',', '.');
   return t.endsWith('км') ? parseFloat(t) * 1000 : parseFloat(t);
@@ -212,6 +231,11 @@ await go('akimat');
 await page.waitForSelector('.qmap .leaflet-tile-loaded');
 const akPins = (await page.$$('.qmap .qpin')).length;
 ok(akPins >= 47, `на карте акимата ${akPins} точек: школы, боксы, хаб, акимат, полигон`);
+const akFocus = await page.$$eval('.qmap .qpin', (ps) => ({
+  badged: ps.filter((p) => !p.classList.contains('mini') && p.querySelector('.qpin-n')).length,
+  mini: ps.filter((p) => p.classList.contains('mini')).length,
+}));
+ok(akFocus.badged >= 1 && akFocus.mini > 30, `главное на карте акимата: точки со сданными вещами — метки с цифрой (${akFocus.badged}), пустые школы — точки (${akFocus.mini})`);
 ok((await page.textContent('[aria-label="Карта сбора"]')).includes('Сдано через школы и боксы: 1'), 'счётчик сдач через точки: 1');
 ok((await page.textContent('#view')).includes(chosen), `в рейтинге школ — ${chosen}`);
 
@@ -334,13 +358,14 @@ const cert = await page.textContent('.sheet');
 ok(cert.includes(`WD-${a50No.slice(2)}`) && cert.includes('NIST SP 800-88') && cert.includes('Данные удалены'), `сертификат WD-${a50No.slice(2)}: стирание по NIST SP 800-88`);
 await page.click('.sheet [data-close]');
 
-console.log('9г. Тёмная тема в меню');
+console.log('9г. Тема как в системе');
 const bodyBg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+const theme = () => page.getAttribute('html', 'data-theme');
+ok((await theme()) === null, 'система светлая — приложение светлое');
 const lightBg = await bodyBg();
-await page.click('#menuBtn');
-await page.click('.menu [data-act="theme"]');
+await page.emulateMedia({ colorScheme: 'dark' });
 await page.waitForTimeout(150);
-ok((await page.getAttribute('html', 'data-theme')) === 'dark', 'меню → «Тёмная тема» включает тёмную тему');
+ok((await theme()) === 'dark', 'система стала тёмной — приложение сразу тёмное, без перезагрузки');
 const darkBg = await bodyBg();
 ok(darkBg !== lightBg && /rgb\(0, 0, 0\)/.test(darkBg), `фон тёмный (${darkBg})`);
 const wide = [];
@@ -351,13 +376,33 @@ for (const s of ['resident', 'wallet', 'shop', 'osi', 'hub', 'akimat']) {
   if (sw > 390) wide.push(`${s}: ${sw} px`);
 }
 ok(!wide.length, `на ширине 390 px ни один экран не уезжает вбок${wide.length ? ': ' + wide.join(', ') : ''}`);
-await page.reload();
-ok((await page.getAttribute('html', 'data-theme')) === 'dark', 'тёмная тема сохраняется после перезагрузки');
+await page.waitForSelector('.qmap .leaflet-tile-loaded');
+await page.waitForTimeout(300);
+const darkTiles = await tileStats(page);
+ok(darkTiles.lum < 60, `карта перерисовалась в тёмной палитре (яркость ${darkTiles.lum.toFixed(0)})`);
+await page.emulateMedia({ colorScheme: 'light' });
+await page.waitForTimeout(400);
+ok((await theme()) === null && (await bodyBg()) === lightBg, 'система снова светлая — приложение тоже');
+ok((await tileStats(page)).lum > 200, 'карта снова светлая');
 await page.click('#menuBtn');
-ok((await page.getAttribute('.menu [data-act="theme"]', 'aria-checked')) === 'true', 'в меню переключатель темы включён');
-await page.click('.menu [data-act="theme"]');
+ok((await page.getAttribute('.menu [data-theme-mode="system"]', 'aria-pressed')) === 'true', 'в меню по умолчанию выбрано «Системная»');
+await page.click('.menu [data-theme-mode="dark"]');
 await page.waitForTimeout(150);
-ok((await page.getAttribute('html', 'data-theme')) === null && (await bodyBg()) === lightBg, 'обратно на светлую тему');
+ok((await theme()) === 'dark' && await page.isVisible('.menu'), 'меню → «Тёмная»: тёмная при светлой системе, меню не закрылось');
+await page.reload();
+ok((await theme()) === 'dark', 'выбор «Тёмная» сохраняется после перезагрузки');
+await page.click('#menuBtn');
+ok((await page.getAttribute('.menu [data-theme-mode="dark"]', 'aria-pressed')) === 'true', 'в меню отмечено «Тёмная»');
+await page.click('.menu [data-theme-mode="system"]');
+await page.waitForTimeout(150);
+ok((await theme()) === null, '«Системная»: снова как в системе (светлая)');
+await page.keyboard.press('Escape');
+const night = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
+const np = await night.newPage();
+await np.goto(`${FILE}#resident`);
+ok((await np.getAttribute('html', 'data-theme')) === 'dark', 'телефон в ночном режиме: приложение тёмное с первого открытия');
+ok((await np.getAttribute('meta[name="theme-color"]', 'content')) === '#161618', 'и строка состояния тёмная');
+await night.close();
 
 console.log('9д. Как приложение на телефоне');
 await go('resident');

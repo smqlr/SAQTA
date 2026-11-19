@@ -1,7 +1,7 @@
 // Карта в экранах: Leaflet + собственная подложка Актобе. Экземпляры карт живут между перерисовками экрана,
 // поэтому масштаб и положение не сбрасываются, когда меняется состояние приложения.
 import L from 'leaflet';
-import { Basemap } from './basemap.js';
+import { Basemap, mapPalette } from './basemap.js';
 import { geo, distM } from './geo.js';
 import { ICON } from '../icons.js';
 import { esc } from '../format.js';
@@ -22,8 +22,12 @@ const PIN = {
   home: { cls: 'p-home', glyph: ICON.pin },
 };
 
-function pinIcon(it, selected) {
+function pinIcon(it, selected, mini = false) {
   const p = PIN[it.kind] || PIN.home;
+  // Второстепенная точка: маленький кружок цвета вида, без значка — не спорит с главными метками
+  if (mini) {
+    return L.divIcon({ className: 'qpin-wrap', html: `<div class="qpin mini ${p.cls}" data-pin="${esc(it.id || '')}"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
+  }
   const badge = it.count ? `<b class="qpin-n">${it.count}</b>` : '';
   return L.divIcon({
     className: 'qpin-wrap',
@@ -106,10 +110,10 @@ export function mountMap(slot, key, opts = {}) {
   });
   map.attributionControl.setPrefix(false);
   map.attributionControl.addAttribution(`© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · ${g.date.split('-').reverse().join('.')}`);
-  new Basemap().addTo(map);
+  const base = new Basemap().addTo(map);
   L.control.zoom({ position: 'topright', zoomInTitle: 'Приблизить', zoomOutTitle: 'Отдалить' }).addTo(map);
   addPlaceLabels(map);
-  m = { key, el, map, layers: {}, opts, me: null };
+  m = { key, el, map, base, layers: {}, opts, me: null };
   new LocateControl({ onClick: () => locate(m) }).addTo(map);
   map.on('click', (e) => m.opts.onMapClick?.({ lat: e.latlng.lat, lon: e.latlng.lng }));
   const c = opts.center || g.center;
@@ -118,14 +122,21 @@ export function mountMap(slot, key, opts = {}) {
   return m;
 }
 
-// Метки: items = [{ id, kind, name, lat, lon, count? }]
-export function setPins(m, layer, items, { selectedId = null, onClick = null, tooltip = true } = {}) {
+// Смена темы: плитки подложки перерисовываются в новой палитре
+export function refreshMaps() {
+  for (const m of maps.values()) m.base.redraw();
+}
+
+// Метки: items = [{ id, kind, name, lat, lon, count? }].
+// focusIds — что главное: эти метки полные, остальные — маленькие точки. Без focusIds все метки полные.
+export function setPins(m, layer, items, { selectedId = null, onClick = null, tooltip = true, focusIds = null } = {}) {
   m.layers[layer]?.remove();
   const group = L.layerGroup();
   for (const it of items) {
     const sel = it.id === selectedId;
-    const mk = L.marker([it.lat, it.lon], { icon: pinIcon(it, sel), title: it.name, riseOnHover: true, zIndexOffset: sel ? 1000 : 0 });
-    if (tooltip) mk.bindTooltip(`<b>${esc(it.name)}</b>${it.address ? `<br>${esc(it.address)}` : ''}`, { direction: 'top', offset: [0, -14], className: 'qtip' });
+    const mini = !!focusIds && !sel && !focusIds.has(it.id);
+    const mk = L.marker([it.lat, it.lon], { icon: pinIcon(it, sel, mini), title: it.name, riseOnHover: true, zIndexOffset: sel ? 1000 : mini ? -500 : 0 });
+    if (tooltip) mk.bindTooltip(`<b>${esc(it.name)}</b>${it.address ? `<br>${esc(it.address)}` : ''}`, { direction: 'top', offset: [0, mini ? -7 : -14], className: 'qtip' });
     if (onClick) mk.on('click', () => onClick(it));
     group.addLayer(mk);
   }
@@ -144,7 +155,7 @@ export function setArea(m, layer, latlngs, { color = '#d0281e', label = '' } = {
 export function setLine(m, layer, latlngs, { color = '#0a6cdf', weight = 5 } = {}) {
   m.layers[layer]?.remove();
   if (!latlngs?.length) return;
-  const casing = L.polyline(latlngs, { color: '#ffffff', weight: weight + 4, opacity: 0.95, interactive: false, lineJoin: 'round' });
+  const casing = L.polyline(latlngs, { color: mapPalette().routeCasing, weight: weight + 4, opacity: 0.95, interactive: false, lineJoin: 'round' });
   const line = L.polyline(latlngs, { color, weight, opacity: 0.95, interactive: false, lineJoin: 'round' });
   m.layers[layer] = L.layerGroup([casing, line]).addTo(m.map);
 }

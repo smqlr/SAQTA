@@ -303,8 +303,11 @@ function attachMap(el) {
   });
   setMe(m, me);
   const selectedId = ui.step === 'method' ? ui.pointId : ui.focus;
+  // Главное на карте — пункты из списка под картой (ближайшие) и выбранный; остальные — точки
+  const near = byDistance(ref(), items).slice(0, ui.step === 'points' ? 6 : 4);
   setPins(m, 'points', items, {
     selectedId,
+    focusIds: new Set((ui.all ? items : near).map((p) => p.id)),
     onClick: (p) => {
       if (ui.step === 'method') ui.pointId = p.id;
       else ui.focus = p.id;
@@ -314,7 +317,6 @@ function attachMap(el) {
   const view = `${ui.step}:${ui.step === 'points' ? ui.tab : ui.method}:${me ? 'me' : ''}`;
   if (ui.fitted !== view) {
     ui.fitted = view;
-    const near = byDistance(ref(), items).slice(0, ui.step === 'points' ? 6 : 4);
     fitTo(m, me ? [me, ...near] : near, { maxZoom: 15 });
   } else if (selectedId && ui.panTo === selectedId) {
     panTo(m, pointById(selectedId));
