@@ -13,7 +13,7 @@
 # Формат паспорта — check/README.md.
 set -u
 
-APP_URL='https://smqlr.github.io/Unknown-app/'
+APP_URL='https://smqlr.github.io/SAQTA/'
 OPEN=1
 JSON_ONLY=0
 FULL_SERIAL=0
