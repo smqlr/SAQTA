@@ -1,4 +1,4 @@
-// Кайтик — маскот SAQTA: бывший телефон, которого сдали, и у него вырос росток (вторая жизнь техники).
+// Сактик — маскот SAQTA: бывший телефон, которого сдали, и у него вырос росток (вторая жизнь техники).
 // Своя рисовка в SVG, без внешних картинок. Настроения: happy, talk, wink, wow, think, scan, party.
 let seq = 0;
 
@@ -48,7 +48,7 @@ function parts(mood) {
   return { left: ARM_L_DOWN, right: ARM_R_WAVE, extra: '' };
 }
 
-function svg(mood, { viewBox, cls = '', label = 'Кайтик', float = true } = {}) {
+function svg(mood, { viewBox, cls = '', label = 'Сактик', float = true } = {}) {
   seq += 1;
   const [l, r, m] = FACES[mood] || FACES.happy;
   const p = parts(mood);
@@ -85,8 +85,8 @@ function svg(mood, { viewBox, cls = '', label = 'Кайтик', float = true } =
 </svg>`;
 }
 
-// Весь Кайтик (для обучения, пустых экранов, успеха)
+// Весь Сактик (для обучения, пустых экранов, успеха)
 export const mascot = (mood = 'happy', opts = {}) => svg(mood, { viewBox: '-6 -2 134 142', ...opts });
 // Только голова с ростком (аватар помощника, кнопки)
 export const mascotFace = (mood = 'happy', opts = {}) => svg(mood, { viewBox: '25 1 70 90', float: false, cls: `m-face ${opts.cls || ''}`, ...opts });
-export const MASCOT_NAME = 'Кайтик';
+export const MASCOT_NAME = 'Сактик';

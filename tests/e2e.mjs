@@ -74,9 +74,9 @@ const reset = async (preset) => {
 
 await page.goto(FILE);
 
-console.log('0. Знакомство с Кайтиком и карта донора');
+console.log('0. Знакомство с Сактиком и карта донора');
 await page.waitForSelector('.onb');
-ok(await page.isVisible('.onb .m-body'), 'обучение ведёт Кайтик');
+ok(await page.isVisible('.onb .m-body'), 'обучение ведёт Сактик');
 for (let i = 0; i < 4; i++) await page.click('[data-onb="next"]');
 await page.fill('#onbName', 'Айгерим');
 await page.click('[data-onb="issue"]');
@@ -453,7 +453,7 @@ const lotW = norm(await page.textContent('[data-testid="lots"] .passport'));
 ok(lotW.includes('P-0001') && lotW.includes('UN3481') && lotW.includes('РОП'), 'партия «Целиком переработчику»: паспорт с UN3481 и категориями РОП');
 await shot('09-wall');
 
-console.log('9д. Помощник Кайтик');
+console.log('9д. Помощник Сактик');
 await go('home');
 await page.click('#askBtn');
 await page.fill('#chatIn', 'Куда сдать холодильник?');

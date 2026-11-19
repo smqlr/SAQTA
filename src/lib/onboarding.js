@@ -1,4 +1,4 @@
-// Обучение при первом запуске: его ведёт Кайтик. В конце житель вводит имя и получает карту донора.
+// Обучение при первом запуске: его ведёт Сактик. В конце житель вводит имя и получает карту донора.
 import { BONUS, WALLET, SCHOOL_LEAGUE } from '../data.js';
 import { getState } from '../store.js';
 import { ART } from './art.js';
@@ -13,7 +13,7 @@ const collage = (keys, pill) => `<div class="onb-collage" aria-hidden="true">
 const STEPS = [
   {
     mood: 'happy',
-    say: 'Сәлем! Я Кайтик. Раньше я был старым телефоном: меня сдали, и мои детали спасли ещё троих.',
+    say: 'Сәлем! Я Сактик. Раньше я был старым телефоном: меня сдали, и мои детали спасли ещё троих.',
     title: 'Старая техника — не мусор',
     lead: 'В ней ещё живут экран, память и батарея. SAQTA находит им новых хозяев, а остальное отдаёт на переработку.',
     art: () => collage(['laptop', 'phone', 'kettle'], `+${BONUS.laptop} бонусов`),
@@ -65,7 +65,7 @@ export function startOnboarding() {
 }
 
 function guide(s) {
-  return `<div class="onb-guide">${mascot(s.mood, { cls: 'onb-m', label: 'Кайтик' })}<div class="bubble">${esc(s.say)}</div></div>`;
+  return `<div class="onb-guide">${mascot(s.mood, { cls: 'onb-m', label: 'Сактик' })}<div class="bubble">${esc(s.say)}</div></div>`;
 }
 
 function paint() {
@@ -76,7 +76,7 @@ function paint() {
   if (s.done) {
     const p = getProfile();
     body = `<div class="onb-art" style="padding-top:22px">${donorCard(getState())}</div>
-      <div class="onb-guide">${mascot('party', { label: 'Кайтик радуется' })}<div class="bubble">Готово, ${esc(firstName(p))}! Это твоя карта донора № ${fmtCardId(p.cardId)}. Покажи её в пункте приёма — вещь запишется на тебя.</div></div>`;
+      <div class="onb-guide">${mascot('party', { label: 'Сактик радуется' })}<div class="bubble">Готово, ${esc(firstName(p))}! Это твоя карта донора № ${fmtCardId(p.cardId)}. Покажи её в пункте приёма — вещь запишется на тебя.</div></div>`;
     foot = `<button class="btn primary lg block" data-onb="done">Начать</button>`;
   } else if (s.name) {
     body = `<div style="padding-top:12px">${guide(s)}

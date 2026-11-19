@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Приложение жителя: верхняя панель, нижнее меню, главная, карта донора,
-   обучение с Кайтиком, каталог с фото, помощник, профиль. Партнёры — отдельный режим.
+   обучение с Сактиком, каталог с фото, помощник, профиль. Партнёры — отдельный режим.
    Подключается после styles.css и переопределяет его там, где нужно.
    ═══════════════════════════════════════════════════════════════════════════ */
 body { background: var(--bg); }
@@ -240,7 +240,7 @@ img.art { display: block; width: 100%; height: 100%; object-fit: contain; }
 .frac + .frac { border-top: 1px solid var(--separator); }
 .frac .xs { grid-column: 1 / -1; }
 
-/* ── Кайтик: маскот SAQTA ───────────────────────────────────────────────── */
+/* ── Сактик: маскот SAQTA ───────────────────────────────────────────────── */
 .m-body { display: block; overflow: visible; }
 .m-float { animation: mfloat 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
 @keyframes mfloat { 50% { transform: translateY(-4px); } }
@@ -252,7 +252,7 @@ img.art { display: block; width: 100%; height: 100%; object-fit: contain; }
 @keyframes mwave { 50% { transform: rotate(-18deg); } }
 @media (prefers-reduced-motion: reduce) { .m-float, .m-leaf, .m-eyes, .m-wave, .scan .beam { animation: none; } }
 
-/* ── Помощник Кайтик (чат) ──────────────────────────────────────────────── */
+/* ── Помощник Сактик (чат) ──────────────────────────────────────────────── */
 .chat { display: grid; grid-template-rows: auto 1fr auto; height: min(78vh, 680px); }
 .chat-head { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--separator); }
 .chat-head .m-face { width: 46px; height: 46px; flex: none; }

@@ -40,8 +40,8 @@ export function render(el, st) {
 
     <h2 class="h-sec">Помощь</h2>
     <div class="rows">
-      <button class="rowi" data-act="chat"><span class="r-ico" style="background:var(--brand-soft);color:var(--brand)">${ICON.help}</span><span class="grow">Спросить Кайтика<small>Ответит про технику, бонусы и данные</small></span>${ICON.chevron}</button>
-      <button class="rowi" data-act="tour"><span class="r-ico">${ICON.info}</span><span class="grow">Пройти знакомство заново<small>Пять экранов с Кайтиком</small></span>${ICON.chevron}</button>
+      <button class="rowi" data-act="chat"><span class="r-ico" style="background:var(--brand-soft);color:var(--brand)">${ICON.help}</span><span class="grow">Спросить Сактика<small>Ответит про технику, бонусы и данные</small></span>${ICON.chevron}</button>
+      <button class="rowi" data-act="tour"><span class="r-ico">${ICON.info}</span><span class="grow">Пройти знакомство заново<small>Пять экранов с Сактиком</small></span>${ICON.chevron}</button>
     </div>
 
     <h2 class="h-sec">Для партнёров</h2>
@@ -52,7 +52,7 @@ export function render(el, st) {
       <button class="rowi" data-act="tazaru" role="switch" aria-checked="${st.tazaru}"><span class="r-ico">${ICON.sun}</span><span class="grow">Неделя Тазару күні<small>Бонусы × 2 за любую сданную вещь</small></span><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
       <button class="rowi" data-act="ready"><span class="r-ico">${ICON.wallet}</span><span class="grow">Кошелёк с историей<small>1 320 бонусов: ноутбук и роялти</small></span></button>
       <button class="rowi" data-act="clean"><span class="r-ico">${ICON.reset}</span><span class="grow">Начать с нуля<small>Пустой кошелёк, без сдач. Имя и карта останутся</small></span></button>
-      <button class="rowi" data-act="api"><span class="r-ico">${ICON.bolt}</span><span class="grow">Сервер ИИ<small>${getApi() ? esc(getApi()) : 'Не подключён: Кайтик отвечает из базы знаний'}</small></span>${ICON.chevron}</button>
+      <button class="rowi" data-act="api"><span class="r-ico">${ICON.bolt}</span><span class="grow">Сервер ИИ<small>${getApi() ? esc(getApi()) : 'Не подключён: Сактик отвечает из базы знаний'}</small></span>${ICON.chevron}</button>
     </div>
 
     <h2 class="h-sec">О SAQTA</h2>
@@ -89,7 +89,7 @@ function editName() {
 
 function editApi() {
   sheet('Сервер ИИ', (body, close) => {
-    body.innerHTML = `<p class="small muted">Адрес сервера SAQTA (папка <code>server/</code> в репозитории). С сервером Кайтик отвечает через Claude, а фото распознаёт с моделью и поломками. Без сервера всё работает офлайн: база знаний и ИИ в телефоне.</p>
+    body.innerHTML = `<p class="small muted">Адрес сервера SAQTA (папка <code>server/</code> в репозитории). С сервером Сактик отвечает через Claude, а фото распознаёт с моделью и поломками. Без сервера всё работает офлайн: база знаний и ИИ в телефоне.</p>
       <form class="stack mt-12" id="apiForm"><input class="input" id="api" inputmode="url" placeholder="https://saqta-ai.example.workers.dev" value="${esc(getApi())}">
       <button class="btn primary block">Сохранить</button><button class="btn block" type="button" data-off>Отключить</button></form>`;
     body.querySelector('#apiForm').onsubmit = (e) => { e.preventDefault(); setApi(body.querySelector('#api').value); close(); toast('Сервер сохранён'); window.dispatchEvent(new Event('saqta:profile')); };
@@ -101,9 +101,9 @@ function about() {
   sheet('О SAQTA', (body) => {
     body.innerHTML = `<div class="card stack" style="justify-items:center;text-align:center">
       <div style="width:150px">${mascot('happy')}</div>
-      <h2>SAQTA</h2><p class="small muted">«Сақта» по-казахски — «сохрани, сбереги». Мы забираем старую технику там, где она лежит, проверяем её в хабе и даём вторую жизнь: целиком, на детали или в переработку.</p>
+      <h2>SAQTA</h2><p class="small muted">«Сақта» по-казахски — «сохрани». Последнее слово нашего слогана «Жина. Сұра. Сақта.» Мы забираем старую технику там, где она лежит, проверяем её в хабе и даём вторую жизнь: целиком, на детали или в переработку.</p>
       <p class="small"><b>${esc(SLOGAN)}</b><br>${esc(SLOGAN_KZ)}</p>
-      <p class="xs muted">Кайтик — маскот SAQTA: бывший телефон с ростком. Рисунок — собственный, внутри приложения.</p>
+      <p class="xs muted">Сактик — маскот SAQTA: бывший телефон с ростком. Рисунок — собственный, внутри приложения.</p>
     </div>`;
   });
 }

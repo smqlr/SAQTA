@@ -84,7 +84,7 @@ function topbarHtml(s) {
   const unread = unreadCount();
   return `<a class="brand" href="#home"><span class="brand-mark">${ICON.logo}</span><span class="brand-name">${APP_NAME}</span></a>
     <span class="top-grow"></span>
-    <button class="ask-btn" id="askBtn" aria-label="Спросить Кайтика">${mascotFace('happy')}</button>
+    <button class="ask-btn" id="askBtn" aria-label="Спросить Сактика">${mascotFace('happy')}</button>
     <a class="icon-btn bell" href="#wallet" aria-label="Уведомления${unread ? `: ${unread} новых` : ''}">${ICON.bell}${unread ? '<i class="dot"></i>' : ''}</a>
     <button class="role-btn" id="menuBtn" aria-haspopup="dialog">Житель ${ICON.chevDown}</button>`;
 }
@@ -165,7 +165,7 @@ topIn.addEventListener('click', (e) => {
         ${isStandalone() ? '' : `<button class="rowi" data-act="install"><span class="r-ico">${ICON.install}</span><span class="grow">Установить на телефон<small>Иконка на рабочем столе, без адресной строки</small></span></button>`}
         <button class="rowi" data-act="ready"><span class="r-ico">${ICON.wallet}</span><span class="grow">Кошелёк с историей<small>1 320 бонусов: ноутбук и роялти</small></span></button>
         <button class="rowi" data-act="clean"><span class="r-ico">${ICON.reset}</span><span class="grow">Начать с нуля<small>Пустой кошелёк, без заявок</small></span></button>
-        <button class="rowi" data-act="tour"><span class="r-ico">${ICON.info}</span><span class="grow">Знакомство с Кайтиком<small>Показать обучение заново</small></span></button>
+        <button class="rowi" data-act="tour"><span class="r-ico">${ICON.info}</span><span class="grow">Знакомство с Сактиком<small>Показать обучение заново</small></span></button>
       </div>
       <p class="footnote center">${APP_NAME} · ${SLOGAN}</p>
     </div>`;

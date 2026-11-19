@@ -2,7 +2,7 @@
   "name": "saqta-ai-server",
   "private": true,
   "type": "module",
-  "description": "SAQTA: сервер для Claude (помощник Кайтик и распознавание фото)",
+  "description": "SAQTA: сервер для Claude (помощник Сактик и распознавание фото)",
   "dependencies": {
     "@anthropic-ai/sdk": "^1.10.0"
   },

@@ -61,7 +61,7 @@ ok(await page.evaluate(() => !!document.querySelector('.tabbar')), 'без ин�
 ok(!errors.length, `ошибок в консоли нет${errors.length ? ': ' + errors.join(' | ') : ''}`);
 await ctx.close();
 
-// Первый запуск на телефоне: житель сначала проходит знакомство с Кайтиком, потом видит плашку установки
+// Первый запуск на телефоне: житель сначала проходит знакомство с Сактиком, потом видит плашку установки
 async function finishOnboarding(p) {
   if (!(await p.$('.onb'))) return;
   for (let i = 0; i < 4; i++) await p.click('[data-onb="next"]');
