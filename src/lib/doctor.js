@@ -32,7 +32,8 @@ const nums = (a) => (Array.isArray(a) ? a.map(n).filter((v) => v != null) : []);
 const str = (v, max = 80) => (v == null ? null : String(v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) || null);
 
 export function normalizePassport(p) {
-  if (!p || typeof p !== 'object' || p.saqta !== 1) return { ok: false, error: 'Это не паспорт SAQTA Доктора (нет метки saqta: 1)' };
+  // Метка формата: saqta: 1. Старая qaita: 1 — паспорта, напечатанные скриптом до переименования проекта
+  if (!p || typeof p !== 'object' || (p.saqta !== 1 && p.qaita !== 1)) return { ok: false, error: 'Это не паспорт SAQTA Доктора (нет метки saqta: 1)' };
   const d = p.device || {};
   const device = {
     kind: ['laptop', 'desktop'].includes(d.kind) ? d.kind : 'laptop',

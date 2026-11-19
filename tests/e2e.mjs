@@ -573,6 +573,19 @@ await desk.waitForTimeout(300);
 ok(await desk.evaluate(() => { const t = document.querySelector('.tabbar'); return !t.hidden && getComputedStyle(t).display !== 'none'; }), 'на компьютере меню жителя тоже на месте — разделы не теряются');
 await desk.close();
 
+console.log('9к. Переименование QAITA → SAQTA: сохранённое не теряется');
+const balBefore = await balance();
+await page.evaluate(() => {
+  const keys = Object.keys(localStorage).filter((k) => k.startsWith('saqta-'));
+  for (const k of keys) { localStorage.setItem(`qaita-${k.slice(6)}`, localStorage.getItem(k)); localStorage.removeItem(k); }
+});
+await page.reload();
+await page.waitForTimeout(300);
+const left = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('qaita-')).length);
+ok(!(await page.$('.onb')) && left === 0, 'данные из старых ключей qaita-* перенесены, обучение не показывается заново');
+ok((await balance()) === balBefore, `баланс после переноса тот же: ${balBefore}`);
+ok((await page.title()) === 'SAQTA' && (await page.textContent('.brand')).includes('SAQTA'), 'название в шапке и вкладке браузера — SAQTA');
+
 console.log('10. Офлайн и ошибки');
 ok(external.length === 0, `внешних запросов нет (${external.length})`);
 ok(errors.length === 0, `ошибок в консоли нет${errors.length ? ': ' + errors.join(' | ') : ''}`);
