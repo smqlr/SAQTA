@@ -305,3 +305,37 @@ img.art { display: block; width: 100%; height: 100%; object-fit: contain; }
 .chat > *, .sheet-body { min-width: 0; }
 .sheet { overflow-x: hidden; }
 .chat-sheet .sheet-head h2 { min-width: 0; }
+
+/* ── Этап 4 «Продли»: бочка Либиха, вердикт, закон минимума ───────────────── */
+.ext-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.barrel-area { position: relative; height: 196px; display: flex; gap: 10px; align-items: flex-end; border-bottom: 2px solid var(--border); padding-top: 38px; }
+.stave { position: relative; flex: 1; min-width: 0; height: 100%; }
+.stave i { position: absolute; bottom: 0; left: 0; right: 0; border-radius: 9px 9px 3px 3px; }
+.stave i.now { background: var(--brand-soft); box-shadow: inset 0 0 0 1.5px var(--brand); }
+.stave.weak i.now { background: var(--tag-danger-bg); box-shadow: inset 0 0 0 1.5px var(--tag-danger); }
+.stave i.new { background: repeating-linear-gradient(135deg, var(--tag-whole-bg) 0 6px, transparent 6px 12px); box-shadow: inset 0 0 0 1.5px var(--tag-whole); }
+.stave .yr { position: absolute; left: 50%; transform: translateX(-50%); width: max-content; max-width: 100%; z-index: 4; font-size: 11.5px; font-weight: 600; text-align: center; line-height: 1.25; background: var(--surface); padding: 0 4px; border-radius: 4px; }
+.stave .yr b { color: var(--tag-whole); }
+.water { position: absolute; left: 0; right: 0; height: 0; border-top: 2px dashed var(--tag-danger); z-index: 3; pointer-events: none; }
+.water.new { border-top-color: var(--tag-whole); }
+.barrel-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.barrel-legend .ln { display: inline-block; width: 18px; height: 0; border-top: 2px dashed var(--tag-danger); vertical-align: middle; margin-right: 6px; }
+.barrel-legend .ln.new { border-top-color: var(--tag-whole); }
+.barrel-names { display: flex; gap: 10px; margin-top: 6px; }
+.barrel-names span { flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.25; overflow-wrap: anywhere; }
+.verdict .v-head { display: flex; gap: 12px; align-items: flex-start; }
+.verdict .v-head b { display: block; font-size: 17px; letter-spacing: -.01em; }
+.verdict .v-head span { display: block; font-size: 13.5px; color: var(--muted); margin-top: 3px; }
+.verdict .v-ico { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; flex: none; background: var(--brand-soft); color: var(--brand); }
+.verdict .v-ico svg { width: 21px; height: 21px; }
+.verdict.good { box-shadow: var(--shadow-1), inset 0 0 0 1.5px var(--tag-whole); }
+.verdict.good .v-ico { background: var(--tag-whole-bg); color: var(--tag-whole); }
+.verdict.bad .v-ico { background: var(--tag-raw-bg); color: var(--tag-raw); }
+.kv { display: grid; gap: 6px; }
+.kv > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.kv span { color: var(--muted); }
+.kv b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ext-table tr.best td, tr.hl td { background: var(--tag-whole-bg); font-weight: 600; }
+.ext-table tr.muted td { color: var(--muted); }
+.notice.link { text-decoration: none; color: inherit; }
+.range { width: 100%; accent-color: var(--brand); margin-top: 8px; }

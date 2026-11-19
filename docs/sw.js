@@ -1,5 +1,5 @@
 // Service worker для версии на GitHub Pages: сначала сеть, без сети — копия из кэша.
-const CACHE = 'app-e6f04809b6';
+const CACHE = 'app-fc00e52dbf';
 const FILES = [
   './', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png',
   './icon-maskable-512.png', './apple-touch-icon.png', './shortcut-give.png', './shortcut-wallet.png', './shortcut-akimat.png',
