@@ -92,6 +92,8 @@ const code = ps1Text.replace(/'[^'\r\n]*'|"[^"\r\n]*"/g, "''").replace(/#.*$/gm,
 ok(!/\?\?|\?\.|&&|\|\|/.test(code), 'Windows: без операторов PowerShell 7 (??, ?., &&, ||) — работает в 5.1');
 ok(/BatteryStaticData/.test(ps1Text) && /BatteryFullChargedCapacity/.test(ps1Text) && /batteryreport/.test(ps1Text) && /Get-PhysicalDisk/.test(ps1Text), 'Windows: WMI батареи, запасной отчёт powercfg и диски');
 ok(!decodePassport('doctor=@@@').ok && !decodePassport('{"saqta":2}').ok && !decodePassport('{"saqta":1,"battery":{"design":100,"full":900}}').ok, 'испорченный или чужой паспорт отклоняется');
+const oldPass = readFileSync(join(root, 'tests/fixtures/doctor-passport.json'), 'utf8').replace('"saqta":1', '"qaita":1');
+ok(decodePassport(oldPass).ok, 'паспорт старого скрипта (метка qaita: 1, до переименования в SAQTA) по-прежнему принимается');
 
 console.log('4. Цифры README = расчёт check/model');
 const m = model();

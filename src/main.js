@@ -1,4 +1,5 @@
 // Оболочка SAQTA: приложение жителя (нижнее меню) и партнёрские режимы (магазин, ОСИ, хаб, акимат).
+import './lib/migrate.js'; // первым: перенос сохранённого из ключей qaita-* до чтения хранилища
 import { APP_NAME, SLOGAN } from './data.js';
 import { ICON } from './lib/icons.js';
 import { getState, subscribe, reset, setTazaru, unreadCount } from './store.js';
