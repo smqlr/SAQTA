@@ -73,6 +73,17 @@ for (const c of cats) {
   ok(n >= 4 && n <= 5, `подтема «${await page.textContent(`[data-cat="${c}"]`)}»: ${n} устройств`);
 }
 await page.click('[data-cat="digital"]');
+const catBar = await page.$eval('.cats', (c) => ({
+  overflow: c.scrollWidth > c.clientWidth,
+  bar: getComputedStyle(c).scrollbarWidth,
+  hidden: getComputedStyle(c, '::-webkit-scrollbar').display === 'none',
+}));
+ok(catBar.overflow && catBar.bar !== 'none' && !catBar.hidden, `ряд подтем прокручивается, ползунок виден (scrollbar-width: ${catBar.bar})`);
+await page.hover('.cats');
+await page.mouse.wheel(0, 300);
+await page.waitForTimeout(150);
+ok((await page.$eval('.cats', (c) => c.scrollLeft)) > 0, 'колесо мыши сдвигает ряд подтем');
+await page.$eval('.cats', (c) => { c.scrollLeft = 0; });
 await page.click('[data-example="lenovo"]');
 ok((await page.textContent('#view')).includes('+200'), 'в карточке +200 бонусов за ноутбук');
 await shot('02-card');
@@ -322,6 +333,31 @@ await page.click('[data-cert]');
 const cert = await page.textContent('.sheet');
 ok(cert.includes(`WD-${a50No.slice(2)}`) && cert.includes('NIST SP 800-88') && cert.includes('Данные удалены'), `сертификат WD-${a50No.slice(2)}: стирание по NIST SP 800-88`);
 await page.click('.sheet [data-close]');
+
+console.log('9г. Тёмная тема в меню');
+const bodyBg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+const lightBg = await bodyBg();
+await page.click('#menuBtn');
+await page.click('.menu [data-act="theme"]');
+await page.waitForTimeout(150);
+ok((await page.getAttribute('html', 'data-theme')) === 'dark', 'меню → «Тёмная тема» включает тёмную тему');
+const darkBg = await bodyBg();
+ok(darkBg !== lightBg && /rgb\(0, 0, 0\)/.test(darkBg), `фон тёмный (${darkBg})`);
+const wide = [];
+for (const s of ['resident', 'wallet', 'shop', 'osi', 'hub', 'akimat']) {
+  await go(s);
+  await shot(`dark-${s}`);
+  const sw = await page.evaluate(() => document.documentElement.scrollWidth);
+  if (sw > 390) wide.push(`${s}: ${sw} px`);
+}
+ok(!wide.length, `на ширине 390 px ни один экран не уезжает вбок${wide.length ? ': ' + wide.join(', ') : ''}`);
+await page.reload();
+ok((await page.getAttribute('html', 'data-theme')) === 'dark', 'тёмная тема сохраняется после перезагрузки');
+await page.click('#menuBtn');
+ok((await page.getAttribute('.menu [data-act="theme"]', 'aria-checked')) === 'true', 'в меню переключатель темы включён');
+await page.click('.menu [data-act="theme"]');
+await page.waitForTimeout(150);
+ok((await page.getAttribute('html', 'data-theme')) === null && (await bodyBg()) === lightBg, 'обратно на светлую тему');
 
 console.log('10. Офлайн и ошибки');
 ok(external.length === 0, `внешних запросов нет (${external.length})`);

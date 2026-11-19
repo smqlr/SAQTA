@@ -19,6 +19,22 @@ const SCREENS = [
   { id: 'akimat', label: 'Акимат', icon: ICON.akimat, mod: akimat },
 ];
 
+// ── Тема: светлая по умолчанию, тёмная — из меню ⋯; выбор хранится в браузере ──
+const THEME_KEY = 'qaita-theme';
+const THEME_BAR = { light: '#f9f9fb', dark: '#161618' };
+function savedTheme() { try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch { return 'light'; } }
+function applyTheme(t) {
+  if (t === 'dark') document.documentElement.dataset.theme = 'dark';
+  else delete document.documentElement.dataset.theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_BAR[t]);
+  document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', t);
+}
+function setTheme(t) {
+  try { localStorage.setItem(THEME_KEY, t); } catch { /* без хранилища тема живёт до перезагрузки */ }
+  applyTheme(t);
+}
+applyTheme(savedTheme());
+
 document.title = APP_NAME;
 const app = document.getElementById('app');
 app.innerHTML = `
@@ -72,12 +88,14 @@ menuBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   if (document.querySelector('.menu')) return closeMenu();
   const st = getState();
+  const dark = savedTheme() === 'dark';
   const m = document.createElement('div');
   m.className = 'menu';
   m.setAttribute('role', 'menu');
   m.innerHTML = `
     <div class="menu-cap">${APP_NAME} · ${SLOGAN}</div>
     <button data-act="tazaru" role="menuitemcheckbox" aria-checked="${st.tazaru}"><div class="grow"><b>Неделя Тазару күні</b><div class="xs muted">Бонусы × 2 за сданную технику</div></div><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
+    <button data-act="theme" role="menuitemcheckbox" aria-checked="${dark}"><div class="grow"><b>Тёмная тема</b><div class="xs muted">Тёмный фон для вечера и сцены</div></div><span class="switch ${dark ? 'on' : ''}"></span></button>
     <hr>
     <button data-act="ready" role="menuitem">${ICON.wallet}<div><b>Кошелёк с историей</b><div class="xs muted">1 320 бонусов: ноутбук и роялти</div></div></button>
     <button data-act="clean" role="menuitem">${ICON.reset}<div><b>Начать с нуля</b><div class="xs muted">Пустой кошелёк, без заявок</div></div></button>`;
@@ -88,6 +106,12 @@ menuBtn.addEventListener('click', (e) => {
     if (!b) return;
     ev.stopPropagation();
     const act = b.dataset.act;
+    if (act === 'theme') {
+      const next = savedTheme() === 'dark' ? 'light' : 'dark';
+      setTheme(next);
+      renderCurrent(); // графики и карта берут цвета темы при отрисовке
+      toast(next === 'dark' ? 'Тёмная тема' : 'Светлая тема');
+    }
     if (act === 'tazaru') { setTazaru(!getState().tazaru); toast(getState().tazaru ? 'Тазару күні: бонусы × 2' : 'Тазару күні выключен'); }
     if (act === 'clean' || act === 'ready') {
       SCREENS.forEach((s) => s.mod.home?.());
