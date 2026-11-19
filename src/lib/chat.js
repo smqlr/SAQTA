@@ -11,11 +11,11 @@ let busy = false;
 
 export function openChat(question = '') {
   if (!log.length) {
-    log.push({ from: 'bot', text: `Сәлем, ${firstName()}! Я Кайтик. Спрашивай про технику и QAITA: куда сдать, сколько бонусов, как стереть данные, что опасно.`, chips: SUGGEST });
+    log.push({ from: 'bot', text: `Сәлем, ${firstName()}! Я Кайтик. Спрашивай про технику и SAQTA: куда сдать, сколько бонусов, как стереть данные, что опасно.`, chips: SUGGEST });
   }
-  sheet('Кайтик — помощник QAITA', (body, close) => {
+  sheet('Кайтик — помощник SAQTA', (body, close) => {
     body.closest('.sheet').classList.add('chat-sheet');
-    body.closest('.sheet').querySelector('.sheet-head h2').innerHTML = `<span class="row" style="gap:10px"><span style="width:40px;height:40px;display:block">${mascotFace('talk')}</span><span><b style="font-size:16px">Кайтик</b><small class="xs muted" style="display:block;font-weight:500">${getApi() ? 'ИИ-помощник · Claude онлайн' : 'ИИ-помощник · база знаний QAITA'}</small></span></span>`;
+    body.closest('.sheet').querySelector('.sheet-head h2').innerHTML = `<span class="row" style="gap:10px"><span style="width:40px;height:40px;display:block">${mascotFace('talk')}</span><span><b style="font-size:16px">Кайтик</b><small class="xs muted" style="display:block;font-weight:500">${getApi() ? 'ИИ-помощник · Claude онлайн' : 'ИИ-помощник · база знаний SAQTA'}</small></span></span>`;
     body.innerHTML = `<div class="chat">
       <div></div>
       <div class="chat-log" id="chatLog" aria-live="polite"></div>

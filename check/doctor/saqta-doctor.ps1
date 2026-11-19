@@ -1,12 +1,12 @@
 ﻿<#
-QAITA Доктор для Windows — «спроси устройство»: ноутбук сам рассказывает о батарее, диске и памяти.
+SAQTA Доктор для Windows — «спроси устройство»: ноутбук сам рассказывает о батарее, диске и памяти.
 Читает только железо. Файлы, имена пользователя и компьютера не трогает, ничего не стирает и не меняет.
 
-  powershell -ExecutionPolicy Bypass -File qaita-doctor.ps1                      паспорт в хабе QAITA (сайт)
-  powershell -ExecutionPolicy Bypass -File qaita-doctor.ps1 -App D:\qaita.html   офлайн-файл с флешки
-  powershell -ExecutionPolicy Bypass -File qaita-doctor.ps1 -NoOpen              только напечатать ссылку
-  powershell -ExecutionPolicy Bypass -File qaita-doctor.ps1 -Json                только паспорт в JSON
-  powershell -ExecutionPolicy Bypass -File qaita-doctor.ps1 -FullSerial          серийный номер целиком
+  powershell -ExecutionPolicy Bypass -File saqta-doctor.ps1                      паспорт в хабе SAQTA (сайт)
+  powershell -ExecutionPolicy Bypass -File saqta-doctor.ps1 -App D:\saqta.html   офлайн-файл с флешки
+  powershell -ExecutionPolicy Bypass -File saqta-doctor.ps1 -NoOpen              только напечатать ссылку
+  powershell -ExecutionPolicy Bypass -File saqta-doctor.ps1 -Json                только паспорт в JSON
+  powershell -ExecutionPolicy Bypass -File saqta-doctor.ps1 -FullSerial          серийный номер целиком
 
 Батарея: WMI root\wmi (BatteryStaticData, BatteryFullChargedCapacity, BatteryCycleCount),
 запасной путь — powercfg /batteryreport /xml. Диск: Get-PhysicalDisk и счётчики надёжности
@@ -20,7 +20,7 @@ param(
   [switch]$FullSerial
 )
 $ErrorActionPreference = 'Stop'
-if ($env:QAITA_MOCKS) { . $env:QAITA_MOCKS } # для тестов: подмена Get-CimInstance и других команд
+if ($env:SAQTA_MOCKS) { . $env:SAQTA_MOCKS } # для тестов: подмена Get-CimInstance и других команд
 $sw = [Diagnostics.Stopwatch]::StartNew()
 
 function Get-Cim([string]$Ns, [string]$Cls) {
@@ -51,7 +51,7 @@ if ($static.Count -gt 0) { $chip = Get-Text ("{0} {1}" -f $static[0].Manufacture
 $src = 'wmi'
 if (-not $design -or -not $full) {
   # Запасной путь: отчёт о батарее Windows в XML
-  $tmp = Join-Path $env:TEMP ("qaita-battery-{0}.xml" -f $PID)
+  $tmp = Join-Path $env:TEMP ("saqta-battery-{0}.xml" -f $PID)
   try {
     & powercfg /batteryreport /output $tmp /xml | Out-Null
     [xml]$x = Get-Content -LiteralPath $tmp -Raw -Encoding UTF8
@@ -112,8 +112,8 @@ try {
 
 $ms = [int]$sw.Elapsed.TotalMilliseconds
 $passport = [ordered]@{
-  qaita = 1
-  tool = "qaita-doctor.ps1 1.0 · $osName"
+  saqta = 1
+  tool = "saqta-doctor.ps1 1.0 · $osName"
   ms = $ms
   device = [ordered]@{ kind = $kind; vendor = $vendor; model = $model; cpu = $cpuName; ramGB = $ramGB; serial = $serial; os = $osName; lock = $null }
   battery = $battery
@@ -130,7 +130,7 @@ if ($App -match '^(https?|file):') { $base = $App } else {
 $base = $base.Split('#')[0]
 $link = "$base#hub/doctor=$b64"
 
-Write-Output ("QAITA Доктор · {0} {1}" -f $vendor, $model).Trim()
+Write-Output ("SAQTA Доктор · {0} {1}" -f $vendor, $model).Trim()
 if ($battery) {
   $soh = [int][math]::Round($full * 100.0 / $design)
   $line = "  Батарея: здоровье $soh% ($full из $design мВт·ч)"
@@ -147,7 +147,7 @@ foreach ($d in $disks) {
 }
 Write-Output "  Прочитано за $ms мс"
 Write-Output ''
-Write-Output 'Ссылка для хаба QAITA:'
+Write-Output 'Ссылка для хаба SAQTA:'
 Write-Output $link
 if (-not $NoOpen) {
   if ($base -like 'file:*') {

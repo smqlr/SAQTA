@@ -1,4 +1,5 @@
-// Оболочка QAITA: приложение жителя (нижнее меню) и партнёрские режимы (магазин, ОСИ, хаб, акимат).
+// Оболочка SAQTA: приложение жителя (нижнее меню) и партнёрские режимы (магазин, ОСИ, хаб, акимат).
+import './lib/migrate.js'; // первым: перенос сохранённого из ключей qaita-* до чтения хранилища
 import { APP_NAME, SLOGAN } from './data.js';
 import { ICON } from './lib/icons.js';
 import { getState, subscribe, reset, setTazaru, unreadCount } from './store.js';
@@ -38,11 +39,11 @@ const ALL = [...RESIDENT, ...PARTNERS];
 const isPartner = (s) => PARTNERS.includes(s);
 
 // ── Тема: по умолчанию как в системе (телефон или браузер); в меню «Житель ▾ → Показ» можно выбрать светлую или тёмную ──
-const THEME_KEY = 'qaita-theme-mode';
+const THEME_KEY = 'saqta-theme-mode';
 const THEME_MODES = [['system', 'Системная'], ['light', 'Светлая'], ['dark', 'Тёмная']];
 const THEME_BAR = { light: '#f9f9fb', dark: '#161618' };
 const systemDark = matchMedia('(prefers-color-scheme: dark)');
-try { localStorage.removeItem('qaita-theme'); } catch { /* старый переключатель: все начинают с системной темы */ }
+try { localStorage.removeItem('saqta-theme'); } catch { /* старый переключатель: все начинают с системной темы */ }
 let mode = (() => {
   try { const v = localStorage.getItem(THEME_KEY); return v === 'light' || v === 'dark' ? v : 'system'; } catch { return 'system'; }
 })();
@@ -124,8 +125,8 @@ tabbar.addEventListener('click', (e) => {
   if (location.hash.slice(1).split('/')[0] === b.dataset.screen) { current.mod.home?.(); renderCurrent(true); }
 });
 window.addEventListener('hashchange', route);
-window.addEventListener('qaita:onboarded', () => renderCurrent(true));
-window.addEventListener('qaita:profile', () => renderCurrent(false));
+window.addEventListener('saqta:onboarded', () => renderCurrent(true));
+window.addEventListener('saqta:profile', () => renderCurrent(false));
 subscribe(() => renderCurrent(false));
 
 // Смена темы: графики и плитки карты берут цвета темы при отрисовке, поэтому перерисовываем их
@@ -153,7 +154,7 @@ topIn.addEventListener('click', (e) => {
   sheet('Кто ты сегодня?', (body, close) => {
     body.innerHTML = `<div class="menu">
       <div class="rows">
-        <a class="rowi" href="#home" data-close-go><span class="r-ico" style="background:var(--brand-soft);color:var(--brand)">${ICON.resident}</span><span class="grow">Житель<small>Приложение QAITA: сдать технику, бонусы</small></span>${current && !isPartner(current) ? ICON.check : ''}</a>
+        <a class="rowi" href="#home" data-close-go><span class="r-ico" style="background:var(--brand-soft);color:var(--brand)">${ICON.resident}</span><span class="grow">Житель<small>Приложение SAQTA: сдать технику, бонусы</small></span>${current && !isPartner(current) ? ICON.check : ''}</a>
         ${PARTNERS.map((p) => `<a class="rowi" href="#${p.id}" data-close-go><span class="r-ico">${p.icon}</span><span class="grow">${p.label}<small>${esc(p.sub)}</small></span>${current === p ? ICON.check : ''}</a>`).join('')}
       </div>
       <div class="section-label mt-16">Показ</div>
@@ -215,7 +216,7 @@ matchMedia('(max-width: 900px)').addEventListener?.('change', renderInstallBar);
 renderInstallBar();
 
 route();
-// Партнёрский режим по прямой ссылке (например, паспорт QAITA Доктора в хабе) открываем без обучения жителя
+// Партнёрский режим по прямой ссылке (например, паспорт SAQTA Доктора в хабе) открываем без обучения жителя
 if (!/^#(shop|osi|hub|akimat)(\/|$)/.test(location.hash)) maybeOnboard();
 
 // PWA: только когда открыто по http(s) (GitHub Pages). Офлайн-файл с флешки работает без этого.

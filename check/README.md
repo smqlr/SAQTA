@@ -4,30 +4,30 @@
 
 | Папка | Что внутри |
 | --- | --- |
-| `doctor/qaita-doctor.sh` | QAITA Доктор для macOS и Linux (в том числе загрузочной флешки) |
-| `doctor/qaita-doctor.ps1` | QAITA Доктор для Windows 10 и 11 (PowerShell 5.1 и 7) |
+| `doctor/saqta-doctor.sh` | SAQTA Доктор для macOS и Linux (в том числе загрузочной флешки) |
+| `doctor/saqta-doctor.ps1` | SAQTA Доктор для Windows 10 и 11 (PowerShell 5.1 и 7) |
 | `model/check-model.mjs` | все цифры этапа: ячейки, стенд, Lii-500, ценность проверки |
 
 Проверка всего этапа без браузера: `npm run check-stage` (из корня репозитория).
 
-## QAITA Доктор
+## SAQTA Доктор
 
 ```bash
-sh check/doctor/qaita-doctor.sh
+sh check/doctor/saqta-doctor.sh
 ```
 
 ```bash
-sh check/doctor/qaita-doctor.sh --app dist/qaita.html
+sh check/doctor/saqta-doctor.sh --app dist/saqta.html
 ```
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File check\doctor\qaita-doctor.ps1
+powershell -ExecutionPolicy Bypass -File check\doctor\saqta-doctor.ps1
 ```
 
 | Параметр (sh / ps1) | Что делает |
 | --- | --- |
 | без параметров | печатает паспорт и открывает хаб на сайте со ссылкой `#hub/doctor=…` |
-| `--app ПУТЬ` / `-App ПУТЬ` | ссылка на офлайн-файл `qaita.html` с флешки (на Windows ссылка копируется: Windows отрезает `#…` у файловых ссылок — вставьте её в «Спроси устройство») |
+| `--app ПУТЬ` / `-App ПУТЬ` | ссылка на офлайн-файл `saqta.html` с флешки (на Windows ссылка копируется: Windows отрезает `#…` у файловых ссылок — вставьте её в «Спроси устройство») |
 | `--no-open` / `-NoOpen` | только напечатать ссылку |
 | `--json` / `-Json` | только паспорт в JSON |
 | `--full-serial` / `-FullSerial` | серийный номер целиком (по умолчанию — последние 4 знака) |
@@ -35,7 +35,7 @@ powershell -ExecutionPolicy Bypass -File check\doctor\qaita-doctor.ps1
 Пример — MacBook команды, 19.11.2026:
 
 ```text
-QAITA Доктор · Apple MacBook Pro (Mac16,8)
+SAQTA Доктор · Apple MacBook Pro (Mac16,8)
   Батарея: здоровье 88% (5499 из 6249 мА·ч), циклов: 238, чип bq40z651
   Группы ячеек, мВ: 4079 4095 4098
   Диск: APPLE SSD AP0512Z, SMART: в норме
@@ -60,7 +60,7 @@ SMART на Linux и износ на Windows видны только с прав�
 
 Для запароленных ноутбуков: любой live-Linux со `smartmontools` и папкой `check/doctor` на флешке.
 1. Загрузиться с флешки (меню загрузки — F12, F9 или Esc, зависит от производителя).
-2. `sudo sh /путь/qaita-doctor.sh --app /путь/qaita.html` — паспорт откроется в офлайн-файле хаба.
+2. `sudo sh /путь/saqta-doctor.sh --app /путь/saqta.html` — паспорт откроется в офлайн-файле хаба.
 3. Если BIOS не даёт загрузиться с флешки — устройство идёт путём «не включается».
 
 Стирание данных делает отдельная станция стирания хаба, а не Доктор: NVMe Sanitize или ATA Secure Erase с проверкой,
@@ -72,8 +72,8 @@ SMART на Linux и износ на Windows видны только с прав�
 
 ```json
 {
-  "qaita": 1,
-  "tool": "qaita-doctor.sh 1.0 · macOS 15.6",
+  "saqta": 1,
+  "tool": "saqta-doctor.sh 1.0 · macOS 15.6",
   "ms": 359,
   "device": { "kind": "laptop", "vendor": "Apple", "model": "MacBook Pro (Mac16,8)", "cpu": "Apple M4 Pro",
               "ramGB": 24, "serial": "...XXXX", "os": "macOS 15.6", "lock": "enabled" },
@@ -85,7 +85,7 @@ SMART на Linux и износ на Windows видны только с прав�
 
 | Поле | Значение |
 | --- | --- |
-| `qaita` | версия формата, всегда 1 |
+| `saqta` | версия формата, всегда 1 |
 | `device.kind` | `laptop` или `desktop` |
 | `device.lock` | блокировка активации: `enabled` — целым не продаём, только детали; `disabled`; `null` — неизвестно (Windows, Linux) |
 | `battery` | `null`, если батареи нет или чип не ответил |
@@ -95,7 +95,7 @@ SMART на Linux и износ на Windows видны только с прав�
 | `battery.pf` | аварийный флаг чипа: не 0 — пакет не вскрываем |
 | `disks[].smart` | `ok`, `fail` или `unknown` |
 
-Хаб отклоняет паспорт без `"qaita": 1`, без двух ёмкостей или с текущей ёмкостью больше заводской в 1,5 раза.
+Хаб отклоняет паспорт без `"saqta": 1`, без двух ёмкостей или с текущей ёмкостью больше заводской в 1,5 раза.
 
 ## Ридер чипа батареи (ноутбук не включается)
 

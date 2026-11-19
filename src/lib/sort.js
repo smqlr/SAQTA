@@ -178,7 +178,7 @@ export function planFor(item, { bankParts = [], prices = {}, rate = EV.tengePerM
     if (n.part && has(n.part)) { removed.add(n.id); (n.did || []).forEach((id) => opened.add(id)); }
     if (n.cells && has(n.cells.part)) { cellsTaken = true; (n.cells.did || []).forEach((id) => opened.add(id)); }
   });
-  // Паспорт QAITA Доктора знает производителя: у MacBook память и SSD распаяны на плате — снимать нечего
+  // Паспорт SAQTA Доктора знает производителя: у MacBook память и SSD распаяны на плате — снимать нечего
   const soldered = /apple/i.test(item.soh?.passport?.device?.vendor || '');
   if (soldered) ['lpRam', 'lpSsd'].forEach((id) => removed.add(id));
   const ctx = { type: item.type, prices, rate, removed, opened, cellsTaken, typeKg: TYPE_KG[item.type] ?? WEIGHT_KG.hubAvg };

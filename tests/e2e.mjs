@@ -175,7 +175,7 @@ const liiCells = await page.$$eval('.cells .cell', (els) => els.filter((e) => e.
 ok(disputed > 0 && liiCells === disputed, `ТЕСТ-30: спорных ${disputed} — у них ёмкость неизвестна, идут на Lii-500`);
 ok((await page.textContent('#test30')).includes('не ёмкость'), 'ТЕСТ-30 честно пишет: импульс меряет не ёмкость');
 const doctorLine = (await page.textContent('[data-testid="doctor-line"]')).replace(/[\u00a0\u202f]/g, ' ');
-ok(doctorLine.includes('204 ₸') && doctorLine.includes('запускаем') && doctorLine.includes('222 ₸'), 'ноутбук: QAITA Доктор окупается — ЦП 204 ₸ > 60 ₸, пакет с чипом 222 ₸');
+ok(doctorLine.includes('204 ₸') && doctorLine.includes('запускаем') && doctorLine.includes('222 ₸'), 'ноутбук: SAQTA Доктор окупается — ЦП 204 ₸ > 60 ₸, пакет с чипом 222 ₸');
 ok(await page.isVisible('#t30chart'), 'кривые напряжения нарисованы');
 await shot('03-hub');
 await page.click('button:has-text("Детали проданы")');
@@ -476,7 +476,7 @@ await page.click('[data-cond="dead"]');
 await page.click('[data-ai-next]');
 ok((await page.textContent('#view')).includes('Что будет с вещью'), 'после фото — карточка и путь вещи');
 
-console.log('9ж. Этап 2: QAITA Доктор по ссылке');
+console.log('9ж. Этап 2: SAQTA Доктор по ссылке');
 const pass = readFileSync(join(root, 'tests/fixtures/doctor-passport.json'), 'utf8').trim();
 const b64 = Buffer.from(pass, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 await page.goto(`${FILE}#hub/doctor=${b64}`);
@@ -486,12 +486,12 @@ const passObj = JSON.parse(pass);
 const sohWant = `${Math.round((passObj.battery.full / passObj.battery.design) * 100)}%`;
 ok((await page.textContent('[data-testid="soh"]')).trim() === sohWant, `паспорт: здоровье батареи ${sohWant} (${passObj.battery.full} из ${passObj.battery.design} мА·ч)`);
 const askText = await page.textContent('[data-testid="ask"]');
-ok(askText.includes('прочитано QAITA Доктором') && askText.includes(passObj.battery.chip) && askText.includes('блокировка активации'), 'паспорт: чип, группы ячеек, блокировка активации — «прочитано QAITA Доктором»');
+ok(askText.includes('прочитано SAQTA Доктором') && askText.includes(passObj.battery.chip) && askText.includes('блокировка активации'), 'паспорт: чип, группы ячеек, блокировка активации — «прочитано SAQTA Доктором»');
 ok((await page.evaluate(() => location.hash)) === '#hub', 'после импорта ссылка очищена до #hub — повторно не импортируется');
-ok((await page.textContent('[data-testid="plan"]')).includes('готово'), 'план проверки: QAITA Доктор — готово');
+ok((await page.textContent('[data-testid="plan"]')).includes('готово'), 'план проверки: SAQTA Доктор — готово');
 await shot('09-doctor');
 const linFx = join(root, 'tests/fixtures/doctor-linux');
-const linOut = execFileSync('sh', [join(root, 'check/doctor/qaita-doctor.sh'), '--no-open'], { env: { ...process.env, QAITA_OS: 'Linux', QAITA_ROOT: linFx, PATH: `${join(linFx, 'bin')}:${process.env.PATH}` }, encoding: 'utf8' });
+const linOut = execFileSync('sh', [join(root, 'check/doctor/saqta-doctor.sh'), '--no-open'], { env: { ...process.env, SAQTA_OS: 'Linux', SAQTA_ROOT: linFx, PATH: `${join(linFx, 'bin')}:${process.env.PATH}` }, encoding: 'utf8' });
 const linLink = linOut.split('\n').find((l) => l.includes('#hub/doctor='));
 await page.click('#view [data-ask]');
 await page.fill('#psPaste', linLink);
@@ -572,6 +572,19 @@ await desk.goto(`${FILE}#home`);
 await desk.waitForTimeout(300);
 ok(await desk.evaluate(() => { const t = document.querySelector('.tabbar'); return !t.hidden && getComputedStyle(t).display !== 'none'; }), 'на компьютере меню жителя тоже на месте — разделы не теряются');
 await desk.close();
+
+console.log('9к. Переименование QAITA → SAQTA: сохранённое не теряется');
+const balBefore = await balance();
+await page.evaluate(() => {
+  const keys = Object.keys(localStorage).filter((k) => k.startsWith('saqta-'));
+  for (const k of keys) { localStorage.setItem(`qaita-${k.slice(6)}`, localStorage.getItem(k)); localStorage.removeItem(k); }
+});
+await page.reload();
+await page.waitForTimeout(300);
+const left = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('qaita-')).length);
+ok(!(await page.$('.onb')) && left === 0, 'данные из старых ключей qaita-* перенесены, обучение не показывается заново');
+ok((await balance()) === balBefore, `баланс после переноса тот же: ${balBefore}`);
+ok((await page.title()) === 'SAQTA' && (await page.textContent('.brand')).includes('SAQTA'), 'название в шапке и вкладке браузера — SAQTA');
 
 console.log('10. Офлайн и ошибки');
 ok(external.length === 0, `внешних запросов нет (${external.length})`);

@@ -1,4 +1,4 @@
-/* QAITA — светлая тема: системный шрифт, светло-серый фон, белые карточки, фото техники на белом, один зелёный акцент */
+/* SAQTA — светлая тема: системный шрифт, светло-серый фон, белые карточки, фото техники на белом, один зелёный акцент */
 :root {
   color-scheme: light;
   --bg: #f3f4f6;
@@ -230,7 +230,7 @@ html.standalone, html.standalone body { overscroll-behavior-y: none; }
 .note-demo::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--faint); margin-right: 6px; }
 .note-sim::before { background: var(--blue); }
 .note-real::before { background: var(--tag-whole); }
-.wrap-note .note-demo { white-space: normal; } /* длинная подпись «прочитано QAITA Доктором за …» переносится на телефоне */
+.wrap-note .note-demo { white-space: normal; } /* длинная подпись «прочитано SAQTA Доктором за …» переносится на телефоне */
 .tbd { color: var(--muted); font-style: normal; }
 
 /* Кнопки */

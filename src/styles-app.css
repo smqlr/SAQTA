@@ -99,7 +99,7 @@ h1 { font-size: 26px; letter-spacing: -.02em; }
 .pt-row .dist { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .pt-row[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--brand), var(--shadow-1); }
 
-/* ── Карта донора: как банковская карта, но это карта участника QAITA ───── */
+/* ── Карта донора: как банковская карта, но это карта участника SAQTA ───── */
 .dcard { position: relative; display: grid; grid-template-rows: auto 1fr auto; aspect-ratio: 1.586; border-radius: 22px; padding: 18px 20px; color: #fff; overflow: hidden; box-shadow: 0 14px 30px rgba(9, 70, 48, .28), 0 2px 6px rgba(0, 0, 0, .12); background: linear-gradient(135deg, #14a370 0%, #0c7350 52%, #064b33 100%); text-decoration: none; isolation: isolate; }
 .dcard.lv-2 { background: linear-gradient(135deg, #1e93ba 0%, #0e6189 55%, #083d5a 100%); box-shadow: 0 14px 30px rgba(8, 61, 90, .3), 0 2px 6px rgba(0, 0, 0, .12); }
 .dcard.lv-3 { background: linear-gradient(135deg, #3a3a3c 0%, #1c1c1e 60%, #0b0b0c 100%); box-shadow: 0 14px 30px rgba(0, 0, 0, .35), 0 2px 6px rgba(0, 0, 0, .2); }
@@ -240,7 +240,7 @@ img.art { display: block; width: 100%; height: 100%; object-fit: contain; }
 .frac + .frac { border-top: 1px solid var(--separator); }
 .frac .xs { grid-column: 1 / -1; }
 
-/* ── Кайтик: маскот QAITA ───────────────────────────────────────────────── */
+/* ── Кайтик: маскот SAQTA ───────────────────────────────────────────────── */
 .m-body { display: block; overflow: visible; }
 .m-float { animation: mfloat 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
 @keyframes mfloat { 50% { transform: translateY(-4px); } }

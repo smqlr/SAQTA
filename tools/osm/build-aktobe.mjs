@@ -33,7 +33,7 @@ const MY = 110574 / Q; // метров в шаге по Y
 const qx = (lon) => Math.round((lon - BBOX[0]) * Q);
 const qy = (lat) => Math.round((lat - BBOX[1]) * Q);
 
-const tmp = mkdtempSync(join(tmpdir(), 'qaita-osm-'));
+const tmp = mkdtempSync(join(tmpdir(), 'saqta-osm-'));
 const city = join(tmp, 'city.osm.pbf');
 const roadsXml = join(tmp, 'roads.osm');
 const allSeq = join(tmp, 'all.geojsonseq');
@@ -414,7 +414,7 @@ const places = {
   source: `© участники OpenStreetMap, ODbL; выгрузка ${data.date}`,
   league: league.map((s) => place('school', s, { id: `s${++n}` })),
   boxes: [...conBoxes, ...uniBoxes].map((b, i) => place(conBoxes.includes(b) ? 'con' : 'university', b, { id: `b${i + 1}` })),
-  hub: { kind: 'hub', name: 'Хаб QAITA', address: hubA.street, lat: toLonLat(hubA.x, hubA.y)[1], lon: toLonLat(hubA.x, hubA.y)[0] },
+  hub: { kind: 'hub', name: 'Хаб SAQTA', address: hubA.street, lat: toLonLat(hubA.x, hubA.y)[1], lon: toLonLat(hubA.x, hubA.y)[0] },
   store: { kind: 'store', name: 'Склад магазина-партнёра', address: storeA.street, lat: toLonLat(storeA.x, storeA.y)[1], lon: toLonLat(storeA.x, storeA.y)[0] },
   akimat: place('townhall', akimat),
   landfill: dedupe(pois.landfill, 2000).map((l) => place('landfill', l)),

@@ -15,7 +15,7 @@ const STEPS = [
     mood: 'happy',
     say: 'Сәлем! Я Кайтик. Раньше я был старым телефоном: меня сдали, и мои детали спасли ещё троих.',
     title: 'Старая техника — не мусор',
-    lead: 'В ней ещё живут экран, память и батарея. QAITA находит им новых хозяев, а остальное отдаёт на переработку.',
+    lead: 'В ней ещё живут экран, память и батарея. SAQTA находит им новых хозяев, а остальное отдаёт на переработку.',
     art: () => collage(['laptop', 'phone', 'kettle'], `+${BONUS.laptop} бонусов`),
   },
   {
@@ -57,7 +57,7 @@ export function startOnboarding() {
   root.className = 'onb';
   root.setAttribute('role', 'dialog');
   root.setAttribute('aria-modal', 'true');
-  root.setAttribute('aria-label', 'Знакомство с QAITA');
+  root.setAttribute('aria-label', 'Знакомство с SAQTA');
   document.body.appendChild(root);
   paint();
   root.addEventListener('click', onClick);
@@ -92,7 +92,7 @@ function paint() {
     foot = `<div class="onb-dots" aria-hidden="true">${dots}</div><button class="btn primary lg block" data-onb="next">${step === 3 ? 'Выпустить свою карту' : 'Дальше'}</button>`;
   }
   root.innerHTML = `<div class="onb-in">
-      <div class="onb-top"><b style="letter-spacing:.14em;font-size:16px">QAITA</b>
+      <div class="onb-top"><b style="letter-spacing:.14em;font-size:16px">SAQTA</b>
         ${s.done ? '' : '<button class="onb-skip" data-onb="skip">Пропустить</button>'}</div>
       ${body}<div></div></div>
     <div class="onb-foot">${foot}</div>`;
@@ -111,7 +111,7 @@ function finish() {
   root?.remove();
   root = null;
   if (!location.hash || location.hash === '#') location.hash = 'home';
-  window.dispatchEvent(new Event('qaita:onboarded'));
+  window.dispatchEvent(new Event('saqta:onboarded'));
 }
 
 function onClick(e) {

@@ -84,7 +84,7 @@ export function render(el, st) {
       <div class="how-i"><span class="n">2</span><div><b>Сдай рядом</b><span>${SCHOOL_LEAGUE.schools} школ и ${SCHOOL_LEAGUE.boxes} боксов. Крупную технику заберём из дома</span></div></div>
       <div class="how-i"><span class="n">3</span><div><b>Получи бонусы</b><span>После проверки в хабе. Вывод на карту любого банка от ${num(WALLET.withdrawMin)}</span></div></div>
     </div>
-    <p class="footnote center mt-16">QAITA · пилот акимата Актобе · «Собери. Спроси. Спаси.»</p>
+    <p class="footnote center mt-16">SAQTA · пилот акимата Актобе · «Собери. Спроси. Спаси.»</p>
   </div>`;
 
   el.onclick = (e) => {

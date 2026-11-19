@@ -7,7 +7,7 @@ import { qrSvg } from './qr.js';
 import { esc, num } from './format.js';
 import { sheet } from './ui.js';
 
-const KEY = 'qaita-profile';
+const KEY = 'saqta-profile';
 let prof = null;
 
 function luhnDigit(s) {
@@ -79,7 +79,7 @@ const PATTERN = (() => {
     <circle cx="300" cy="30" r="46" fill="#fff" fill-opacity=".04"/>${lines.join('')}</svg>`;
 })();
 
-// Карта донора: как банковская, но это карта участника QAITA (не платёжная)
+// Карта донора: как банковская, но это карта участника SAQTA (не платёжная)
 export function donorCard(st, { mini = false, name = null, balance = null } = {}) {
   const p = getProfile();
   const lv = levelOf(st);
@@ -87,7 +87,7 @@ export function donorCard(st, { mini = false, name = null, balance = null } = {}
   const bal = balance ?? st.wallet.balance;
   return `<div class="dcard lv-${lv.id}${mini ? ' mini' : ''}" data-testid="donor-card">
     <div class="dcard-pat">${PATTERN}</div>
-    <div class="dcard-top"><span class="dcard-logo">${ICON.logo}<b>QAITA</b></span><span class="dcard-lv">${esc(lv.name)}</span></div>
+    <div class="dcard-top"><span class="dcard-logo">${ICON.logo}<b>SAQTA</b></span><span class="dcard-lv">${esc(lv.name)}</span></div>
     <div class="dcard-bal"><span>Бонусы · 1 бонус = 1 ₸</span><b class="num">${num(bal)}<small>Б</small></b></div>
     <div class="dcard-bottom">
       <div><div class="dcard-name">${esc(nm)}</div><div class="dcard-id">${fmtCardId(p.cardId)}</div></div>
@@ -100,7 +100,7 @@ export function openCardQr() {
   const p = getProfile();
   sheet('Карта донора', (body) => {
     body.innerHTML = `<div class="card card-qr-sheet">
-      ${qrSvg(`QAITA:donor:${p.cardId}`, { label: 'QR-код карты донора' })}
+      ${qrSvg(`SAQTA:donor:${p.cardId}`, { label: 'QR-код карты донора' })}
       <div><b style="font-size:18px">${esc(displayName(p))}</b><div class="xs muted num" style="letter-spacing:.08em">${fmtCardId(p.cardId)}</div></div>
       <p class="small muted">Покажи этот код в пункте приёма или курьеру. Сданная вещь сразу запишется на твою карту, а бонусы придут в кошелёк.</p>
     </div>`;
