@@ -136,7 +136,8 @@ topIn.addEventListener('click', (e) => {
 });
 
 route();
-maybeOnboard();
+// Партнёрский режим по прямой ссылке (например, паспорт QAITA Доктора в хабе) открываем без обучения жителя
+if (!/^#(shop|osi|hub|akimat)(\/|$)/.test(location.hash)) maybeOnboard();
 
 // PWA: только когда открыто по http(s) (GitHub Pages). Офлайн-файл с флешки работает без этого.
 if (/^https?:$/.test(location.protocol)) {

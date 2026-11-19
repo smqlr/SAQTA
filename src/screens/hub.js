@@ -1,8 +1,11 @@
-// Экран «Хаб»: очередь с бирками, расчёт EV, «Спроси устройство», ТЕСТ-30, банк деталей с QR-паспортом.
-import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS, RAW, RAW_PILOT_TENGE } from '../data.js';
-import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder, rawStock, shipRaw } from '../store.js';
+// Экран «Хаб»: очередь с бирками, план проверки, расчёт EV и ценности проверки, «Спроси устройство» (QAITA Доктор),
+// ТЕСТ-30, банк деталей с QR-паспортом.
+import { EXAMPLES, TAGS, TEST30, PARTS, ECON, EV, APP_NAME, BATTERY_PS, BONUS, RAW, RAW_PILOT_TENGE, CHECK, CHECK_PLAN, PART_CHECKS } from '../data.js';
+import { getState, selectHubItem, triage, askDevice, runCells, sellPart, hasOrderFor, addWorkshopOrder, cancelWorkshopOrder, rawStock, shipRaw, importPassport } from '../store.js';
 import { expectedValue, decision, evExplain, pSell } from '../lib/ev.js';
 import { parseBatteryReport, stateOfHealth } from '../lib/battery-report.js';
+import { checkValue, checkValueExplain, packChipValue, partVK } from '../lib/voi.js';
+import { decodePassport } from '../lib/doctor.js';
 import { ART } from '../lib/art.js';
 import { ICON } from '../lib/icons.js';
 import { qrSvg } from '../lib/qr.js';
@@ -17,6 +20,16 @@ const dash = '<span class="faint">—</span>';
 let trip = null; // последний построенный маршрут Газели: { sig, stops, res }
 let ui = { pick: null, running: false, lastRun: null };
 export function home() { ui = { pick: null, running: false, lastRun: ui.lastRun }; }
+
+// Ссылка из QAITA Доктора: #hub/doctor=<паспорт> → новая карточка в очереди (check/doctor)
+export function open(param) {
+  if (!String(param).startsWith('doctor=')) return;
+  const ps = decodePassport(param);
+  try { history.replaceState(null, '', `${location.pathname}${location.search}#hub`); } catch { /* file:// без истории — не страшно */ }
+  if (!ps.ok) { setTimeout(() => toast(ps.error), 0); return; }
+  const item = importPassport(ps);
+  setTimeout(() => toast(`QAITA Доктор: ${item.model}${ps.battery ? ` · здоровье батареи ${ps.battery.soh}%` : ''}`), 0);
+}
 
 const artOf = (item) => {
   const ex = EXAMPLES.find((e) => e.id === item.exampleId);
@@ -35,7 +48,7 @@ export function render(el, st) {
   <div class="kpis">
     ${kpi(tenge(ECON.deviceProcessing), 'обработка одного устройства', tenge(ECON.checkNow))}
     ${kpi(`≈ ${tenge(ECON.cellTenge)}`, `проверка ячейки, ${TEST30.seconds} с`, `${tenge(ECON.cellNowTenge)}, ${ECON.cellNowMin} мин`)}
-    ${kpi(`${ECON.triageSec} с`, 'триаж устройства', '')}
+    ${kpi(`${fmtDec(CHECK.chipMachineSec)} с`, 'чип батареи прочитан (замер)', `${ECON.cellNowMin} мин на ячейку`)}
     ${kpi(`≈ ${ECON.laptopMin} мин`, 'разборка ноутбука, 3 детали под заказ', `${ECON.laptopNowMin} мин`)}
   </div>
   <div class="dash mt-16">
@@ -113,8 +126,62 @@ function detail(it) {
   ${it.donationId ? `<p class="xs muted mt-8">После подтверждения житель получит бонусы в кошелёк.</p>` : ''}`
   : `<p class="small mt-12"><b>${TAGS[it.tag].label}:</b> <span class="muted">${TAGS[it.tag].hint}</span></p>`}
 
-  ${ex?.parts?.length ? evTable(ex, it) : ''}
-  ${it.type === 'laptop' ? askBlock(it) : ''}`;
+  ${planBlock(it)}
+  ${it.type === 'laptop' ? askBlock(it) : ''}
+  ${ex?.parts?.length ? evTable(ex, it) : ''}`;
+}
+
+// ── План проверки: лестница для любой вещи (README, «Матрица проверки») ─────
+const fmtDec = (v) => String(v).replace('.', ',');
+const isOff = (it) => /не включ|не заряж|не работает/i.test(it.state || '');
+const isDanger = (it) => it.suggestedTag === 'danger' || it.tag === 'danger' || /взду/i.test(it.state || '');
+
+function stepStatus(s, it) {
+  if (s.kind === 'safety' || s.kind === 'data') return ['всегда', 'on'];
+  if (s.kind === 'partner') return ['партнёр', 'muted'];
+  if (s.kind === 'ask') return s.name === 'QAITA Доктор' && it.soh ? ['готово', 'on'] : ['спросить устройство', 'ask'];
+  if (/ТЕСТ-30/.test(s.name)) {
+    const v = it.soh?.value;
+    if (v == null) return ['после чипа', 'muted'];
+    return v >= TEST30.sohCutoff && !it.soh.pf ? ['делаем', 'on'] : ['не вскрываем', 'off'];
+  }
+  if (/Lii-500/.test(s.name)) return ['только спорные', 'ask'];
+  if (/Без проверки/.test(s.name)) return ['пропускаем: ЦП = 0', 'off'];
+  if (/Розетка/.test(s.name)) return it.suggestedTag === 'raw' || it.tag === 'raw' ? ['пропускаем: нет спроса', 'off'] : ['по ценности', 'ask'];
+  return ['по ценности', 'ask'];
+}
+
+function planBlock(it) {
+  const off = isOff(it);
+  const danger = isDanger(it);
+  let steps = (CHECK_PLAN[it.type] || []).filter((s) => !s.when || s.when === (off ? 'off' : 'on'));
+  if (danger) steps = steps.filter((s) => s.kind === 'safety');
+  const row = (lv, name, how, [txt, cls]) => `<div class="plan-row"><span class="lv">${lv}</span><div class="grow"><b class="small">${esc(name)}</b><div class="xs muted">${esc(how)}</div></div><span class="pst ${cls}">${esc(txt)}</span></div>`;
+  return `
+  <div class="section-label mt-16">План проверки</div>
+  <p class="xs muted">Каждая проверка — вопрос. Сначала спрашиваем само устройство, человека — только если ответ окупится. Безопасность и данные — всегда.</p>
+  <div class="plan mt-8" data-testid="plan">
+    ${steps.map((s) => row(s.level, s.name, s.how, stepStatus(s, it))).join('')}
+    ${danger ? row('!', 'Дальше не проверяем', 'вздутая батарея может загореться: металлический шкаф с песком, потом лицензированному переработчику', ['стоп', 'off']) : ''}
+  </div>`;
+}
+
+// Ценность проверки детали до снятия и что из неё следует
+function partCheck(p, it) {
+  const v = checkValue(p);
+  if (v == null) return { v: null, text: '' };
+  const pc = PART_CHECKS.find((c) => c.match.test(p.name));
+  if (pc?.chip) {
+    const vk = partVK(p);
+    const pk = packChipValue({ pCells: vk.P, V: vk.V, K: vk.K });
+    return { v: pk.value, chip: pk, text: `чип перед вскрытием: ${num(pk.chipCost)} ₸ < ${num(pk.value)} ₸ → читаем всегда` };
+  }
+  if (v === 0) return { v, text: 'проверка ничего не изменит' };
+  if (!pc) return { v, text: 'проверяем снятую' };
+  const cost = Math.round(pc.min * EV.tengePerMinute);
+  if (pc.needsOn && isOff(it)) return { v, text: 'до снятия не проверить: не включается — проверяем снятую' };
+  if (v > cost) return { v, text: `окупается: ${pc.name}, ${num(cost)} ₸` };
+  return { v, doctor: !!pc.doctor, text: pc.doctor ? `отдельно ${num(v)} < ${num(cost)} ₸ — входит в QAITA Доктор` : `дороже пользы (${num(cost)} ₸) — проверяем снятую` };
 }
 
 function evTable(ex, it) {
@@ -123,12 +190,15 @@ function evTable(ex, it) {
   <div class="section-label mt-16">Ожидаемая ценность деталей (EV)</div>
   <div class="formula">EV = P(работает) × цена × P(купят за ${EV.sellDays} дней) − t<sub>мин</sub> × ${EV.tengePerMinute}</div>
   <p class="xs muted mt-8">P(купят) = ${String(EV.pSellWithOrder).replace('.', ',')}, если на деталь есть заявка мастерской, и ${String(EV.pSellNoOrder).replace('.', ',')}, если нет. Деталь снимаем, только если EV больше нуля.</p>
+  <div class="formula mt-8">ЦП = min((1 − P) × K, P × (V − K)),  V = цена × P(купят),  K = t<sub>мин</sub> × ${EV.tengePerMinute}</div>
+  <p class="xs muted mt-8">ЦП — ценность проверки до снятия. Проверка спасает от двух ошибок: снять нерабочую деталь или оставить рабочую. Мы и так выбираем меньшую, поэтому проверка окупается, только если ЦП больше её цены.</p>
   <div class="table-wrap mt-8"><table>
-    <thead><tr><th>Деталь</th><th class="r">P(работает)</th><th class="r">Цена</th><th>Заявка</th><th class="r">P(купят)</th><th class="r">t, мин</th><th class="r">EV</th><th>Решение</th></tr></thead>
+    <thead><tr><th>Деталь</th><th class="r">P(работает)</th><th class="r">Цена</th><th>Заявка</th><th class="r">P(купят)</th><th class="r">t, мин</th><th class="r">EV</th><th>Решение</th><th class="r">ЦП</th></tr></thead>
     <tbody>${parts.map((p) => {
       const ev = expectedValue(p);
       const dcs = decision(ev);
       const ps = pSell(p);
+      const pcv = partCheck(p, it);
       return `<tr>
         <td><b>${esc(p.name)}</b>${ev == null ? '' : `<div class="xs muted nowrap">${esc(evExplain(p, num))}</div>`}</td>
         <td class="r">${p.pWorks == null ? dash : String(p.pWorks).replace('.', ',')}</td>
@@ -138,23 +208,48 @@ function evTable(ex, it) {
         <td class="r">${p.minutes == null ? dash : p.minutes}</td>
         <td class="r"><b>${ev == null ? dash : `${ev > 0 ? '+' : '−'}${num(Math.abs(ev))} ₸`}</b></td>
         <td>${dcs.take == null ? (p.hasOrder ? '<b style="color:var(--tag-whole)">под заявку</b>' : '<span class="muted">ждём заявку</span>') : dcs.take ? '<b style="color:var(--tag-whole)">снимаем</b>' : '<span class="muted">оставляем</span>'}</td>
+        <td class="r" data-testid="cp"><b>${pcv.v == null ? dash : `${num(pcv.v)} ₸`}</b>${pcv.text ? `<div class="xs muted" style="white-space:normal;min-width:150px">${esc(pcv.text)}</div>` : ''}</td>
       </tr>`;
-    }).join('')}</tbody></table></div>`;
+    }).join('')}</tbody></table></div>
+    ${doctorLine(parts, it)}`;
+}
+
+// Ноутбук: QAITA Доктор отвечает сразу за память, SSD и батарею — ценность проверки складывается
+function doctorLine(parts, it) {
+  if (it.type !== 'laptop') return '';
+  const items = parts.map((p) => ({ p, c: partCheck(p, it) })).filter(({ p, c }) => c.v != null && PART_CHECKS.find((x) => x.match.test(p.name) && (x.doctor || x.chip)));
+  if (!items.length) return '';
+  const sum = items.reduce((a, { c }) => a + c.v, 0);
+  const cost = Math.round(CHECK.doctorMin * EV.tengePerMinute);
+  const chip = items.find(({ c }) => c.chip)?.c.chip;
+  return `<p class="small mt-8" data-testid="doctor-line"><b>QAITA Доктор</b> отвечает сразу за ${items.map(({ p }) => esc(p.name.toLowerCase())).join(', ')}: ЦП вместе ${num(sum)} ₸ ${sum > cost ? '>' : '≤'} ${num(cost)} ₸ за минуту — ${sum > cost ? '<b style="color:var(--tag-whole)">запускаем</b>' : 'не запускаем'}.${chip ? ` Пакет батареи вслепую даёт ${num(chip.blind)} ₸, с чипом — ${num(chip.withChip)} ₸.` : ''}</p>`;
 }
 
 function askBlock(it) {
   const s = it.soh;
-  const ok = s && s.value >= TEST30.sohCutoff;
+  const ps = s?.passport || null;
+  const b = ps?.battery || null;
+  const hasBat = !!s && s.value != null;
+  const ok = hasBat && s.value >= TEST30.sohCutoff && !s.pf;
+  const verdict = !s ? '' : !hasBat ? ['Батареи нет — диск и память по паспорту', 'var(--muted)']
+    : s.pf ? ['Аварийный флаг чипа — пакет не вскрываем, целиком на переработку', 'var(--tag-danger)']
+    : ok ? ['Пакет годен — ячейки на стенд ТЕСТ-30', 'var(--tag-whole)'] : [`Ниже ${TEST30.sohCutoff}% — батарея целиком на переработку`, 'var(--tag-danger)'];
+  const src = s?.source === 'doctor' ? realMark(`прочитано QAITA Доктором${ps?.ms != null ? ` за ${num(ps.ms)} мс` : ''}`)
+    : s?.source === 'report' ? realMark('прочитано из отчёта Windows') : '<span class="note-demo note-real">введено из PowerShell</span>';
   return `
-  <div class="section-label mt-16">«Спроси устройство»</div>
-  <div class="card flat tight">
-    <p class="small">Чип батареи хранит заводскую и текущую ёмкость и число циклов — читаем за секунды, разбирать ничего не нужно.</p>
-    ${s ? `<div class="row wrap mt-12" style="gap:16px">
-        <div><div class="counter" style="font-size:40px">${s.value}%</div><div class="xs muted">здоровье батареи (SoH)</div></div>
+  <div class="section-label mt-16">«Спроси устройство» — QAITA Доктор</div>
+  <div class="card flat tight" data-testid="ask">
+    <p class="small">Ноутбук сам знает здоровье батареи и диска: газомер батареи считает каждый кулон (Q = ∫ I dt), SSD ведёт SMART. Читаем за секунды и ничего не разбираем. Замер на ноутбуке команды: чип — за ${fmtDec(CHECK.chipMachineSec)} с.</p>
+    ${s ? `<div class="row wrap mt-12" style="gap:16px;align-items:flex-start">
+        <div><div class="counter" style="font-size:40px" data-testid="soh">${hasBat ? `${s.value}%` : '—'}</div><div class="xs muted">${hasBat ? 'здоровье батареи (SoH)' : 'батареи нет'}</div></div>
         <div class="grow small">
-          <div>${num(s.full)} из ${num(s.design)} мВт·ч${s.cycles != null ? ` · ${num(s.cycles)} циклов` : ''}</div>
-          <div class="mt-8"><b style="color:${ok ? 'var(--tag-whole)' : 'var(--tag-danger)'}">${ok ? 'Ячейки → стенд ТЕСТ-30' : 'Батарея целиком → переработка'}</b></div>
-          <div class="mt-8">${s.source === 'report' ? realMark('прочитано из отчёта Windows') : '<span class="note-demo note-real">введено из PowerShell</span>'}</div>
+          ${hasBat ? `<div>${num(s.full)} из ${num(s.design)} ${s.unit || 'мВт·ч'}${s.cycles != null ? ` · ${num(s.cycles)} циклов` : ''}${b?.chip ? ` · чип ${esc(b.chip)}` : ''}</div>` : ''}
+          ${b?.cellsMv?.length ? `<div class="xs muted">Группы ячеек: ${b.cellsMv.map((v) => fmtDec((v / 1000).toFixed(3))).join(' / ')} В, разброс ${num(b.spreadMv)} мВ${b.groupSoh?.length ? ` · химическая ёмкость групп (Qmax): ${b.groupSoh.join(' / ')}%` : ''}</div>` : ''}
+          ${b?.tMaxC != null ? `<div class="xs muted">За всю жизнь: от ${b.tMinC} до ${b.tMaxC} °C</div>` : ''}
+          ${ps?.disks?.length ? `<div class="xs muted">${ps.disks.map((d) => `${esc(d.model || 'диск')}${d.gb ? ` · ${num(d.gb)} ГБ` : ''} · SMART: ${d.smart === 'ok' ? 'в норме' : d.smart === 'fail' ? '<b style="color:var(--tag-danger)">сбой</b>' : 'нет данных'}${d.wearPct != null ? ` · износ ${d.wearPct}%` : ''}${d.hours != null ? ` · ${num(d.hours)} ч` : ''}`).join('<br>')}</div>` : ''}
+          ${ps?.device ? `<div class="xs muted">${[ps.device.cpu, ps.device.ramGB ? `${ps.device.ramGB} ГБ памяти` : null, ps.device.os].filter(Boolean).map(esc).join(' · ')}${ps.device.lock === 'enabled' ? ' · <b style="color:var(--tag-danger)">блокировка активации: целым не продаём</b>' : ps.device.lock === 'disabled' ? ' · блокировки активации нет' : ''}</div>` : ''}
+          <div class="mt-8"><b style="color:${verdict[1]}">${verdict[0]}</b></div>
+          <div class="mt-8">${src}</div>
         </div></div>` : ''}
     <div class="row wrap mt-12">
       <button class="btn ${s ? 'ghost' : 'primary'}" data-ask="${it.id}">${ICON.battery} Спроси устройство</button>
@@ -164,30 +259,36 @@ function askBlock(it) {
 }
 
 // ── ТЕСТ-30 ─────────────────────────────────────────────────────────────────
+const gClass = (g) => (g === '?' ? 'Q' : g);
 function test30Card(sel) {
   const r = ui.lastRun;
   const cells = Array.from({ length: TEST30.cells }, (_, i) => r?.results[i]);
+  const eligible = sel?.type === 'laptop' && sel?.soh?.value >= TEST30.sohCutoff && !sel?.soh?.pf;
   return `
   <div class="card-title"><div class="row wrap" style="gap:8px"><h2>ТЕСТ-30</h2>${simMark('симуляция по физической модели ячейки')}</div>
-    <button class="btn primary sm" data-run="${sel?.type === 'laptop' && sel?.soh?.value >= TEST30.sohCutoff ? sel.id : ''}" ${ui.running ? 'disabled' : ''}>${ICON.bolt} ${ui.running ? 'Идёт тест…' : r ? 'Запустить снова' : 'Запустить'}</button></div>
-  <p class="small muted">${TEST30.cells} ячеек 18650 за ${TEST30.seconds} секунд коротким импульсом нагрузки через резистор ${TEST30.loadOhm} Ом. Стенд смотрит, насколько просело напряжение: R<sub>0</sub> = (U<sub>без нагрузки</sub> − U<sub>под нагрузкой</sub>) / I. Ячейки берём только из батарей со здоровьем не ниже ${TEST30.sohCutoff}%.</p>
+    <button class="btn primary sm" data-run="${eligible ? sel.id : ''}" ${ui.running ? 'disabled' : ''}>${ICON.bolt} ${ui.running ? 'Идёт тест…' : r ? 'Запустить снова' : 'Запустить'}</button></div>
+  <p class="small muted">${TEST30.cells} ячеек за ${TEST30.seconds} секунд: ${CHECK.pulse.restSec} с покоя → импульс ${CHECK.pulse.loadSec} с через резистор ${TEST30.loadOhm} Ом → восстановление. R = (U<sub>покоя</sub> − U<sub>через ${CHECK.pulse.readAtSec} с</sub>) / I. Импульс меряет сопротивление, напряжение и нагрев — <b>не ёмкость</b>: её ячейка наследует от чипа своего пакета. Если сопротивление выше медианы соседей по пакету больше чем в ${fmtDec(CHECK.outlierRatio)} раза или чипа нет, ячейка «спорная» и идёт на полный цикл Lii-500. Пакеты ниже ${TEST30.sohCutoff}% не вскрываем.</p>
   <div class="dash mt-12">
     <div class="span-5">
-      <div class="cells">${cells.map((c, i) => `<div class="cell ${c ? '' : 'idle'} ${ui.running ? 'running' : ''}">
-        <span class="xs faint">№${i + 1}</span><span class="grade ${c ? c.grade : ''}">${c ? c.grade : '·'}</span>
-        <span class="xs num">${c ? `${c.rMilliOhm} мОм` : '—'}</span><span class="xs num muted">${c ? `${c.soh}%` : ''}</span></div>`).join('')}</div>
+      <div class="cells" data-testid="cells">${cells.map((c, i) => `<div class="cell ${c ? '' : 'idle'} ${ui.running ? 'running' : ''}" ${c ? `title="${esc(`${c.packLabel}: ${c.sohSrc}${c.reason ? `, ${c.reason}` : ''}`)}"` : ''}>
+        <span class="xs faint">№${i + 1}</span><span class="grade ${c ? gClass(c.grade) : ''}">${c ? c.grade : '·'}</span>
+        <span class="xs num">${c ? `${c.rMilliOhm} мОм` : '—'}</span><span class="xs num muted">${c ? (c.soh != null ? `${c.soh}%` : c.grade === '?' ? 'Lii-500' : '—') : ''}</span></div>`).join('')}</div>
       <div class="table-wrap mt-12"><table>
         <thead><tr><th>Грейд</th><th>Условие</th><th>Куда идёт</th><th class="r">Ячеек</th></tr></thead>
         <tbody>
           <tr><td><span class="grade A">A</span></td><td class="small">здоровье ≥ ${TEST30.gradeA.soh}%, R ≤ ${TEST30.gradeA.rMilliOhm} мОм</td><td class="small">${TEST30.use.A}</td><td class="r">${r ? r.count.A : '—'}</td></tr>
           <tr><td><span class="grade B">B</span></td><td class="small">здоровье ${TEST30.gradeB.soh}–${TEST30.gradeA.soh}%, R ≤ ${TEST30.gradeB.rMilliOhm} мОм</td><td class="small">${TEST30.use.B}</td><td class="r">${r ? r.count.B : '—'}</td></tr>
-          <tr><td><span class="grade C">C</span></td><td class="small">хуже, U < ${String(TEST30.gradeC.minVolt).replace('.', ',')} В или нагрев > ${TEST30.gradeC.maxHeatC} °C</td><td class="small">${TEST30.use.C}</td><td class="r">${r ? r.count.C : '—'}</td></tr>
+          <tr><td><span class="grade C">C</span></td><td class="small">хуже, U < ${fmtDec(TEST30.gradeC.minVolt)} В или нагрев > ${TEST30.gradeC.maxHeatC} °C</td><td class="small">${TEST30.use.C}</td><td class="r">${r ? r.count.C : '—'}</td></tr>
+          <tr><td><span class="grade Q">?</span></td><td class="small">ёмкость неизвестна: чипа нет или выбивается из соседей</td><td class="small">полный цикл Lii-500 (≈ ${CHECK.liiCycleH} ч), потом A, B или C</td><td class="r" data-testid="disputed">${r ? r.count['?'] : '—'}</td></tr>
         </tbody></table></div>
+      ${r ? `<div class="table-wrap mt-12"><table>
+        <thead><tr><th>Пакет</th><th class="r">Чип: здоровье</th><th class="r">Медиана R</th><th class="r">Ячеек</th></tr></thead>
+        <tbody>${r.packs.map((p) => `<tr><td class="small">${esc(p.label)}</td><td class="r">${p.soh != null ? `${Math.round(p.soh)}%` : '<span class="muted">чипа нет</span>'}</td><td class="r">${p.medianR != null ? `${p.medianR} мОм` : dash}</td><td class="r">${p.n}</td></tr>`).join('')}</tbody></table></div>` : ''}
     </div>
     <div class="span-7">
-      <div class="row between"><b class="small">Кривые напряжения, В</b><div class="legend"><span><i style="background:var(--grade-a)"></i>A</span><span><i style="background:var(--grade-b)"></i>B</span><span><i style="background:var(--grade-c)"></i>C</span></div></div>
+      <div class="row between"><b class="small">Кривые напряжения, В</b><div class="legend"><span><i style="background:var(--grade-a)"></i>A</span><span><i style="background:var(--grade-b)"></i>B</span><span><i style="background:var(--grade-c)"></i>C</span><span><i style="background:var(--faint)"></i>?</span></div></div>
       <div class="chart-box mt-8">${r ? '<canvas id="t30chart" aria-label="Кривые напряжения 16 ячеек"></canvas>' : `<div class="empty" style="height:100%;display:grid;place-items:center">Нажмите «Запустить»: стенд даст импульс нагрузки и построит кривые</div>`}</div>
-      ${r ? `<p class="xs muted mt-8">Ток импульса ≈ ${String(r.results[0].current).replace('.', ',')} А. Время теста — ${TEST30.seconds} с на все ${TEST30.cells} ячеек одновременно (вручную — ${ECON.cellNowMin} минут на одну).</p>` : ''}
+      ${r ? `<p class="xs muted mt-8">Ток импульса ≈ ${fmtDec(r.results[0].current)} А. Стенд подключён двумя проводами: провода и контакты слотов дают ${r.slotFix.min}–${r.slotFix.max} мОм — эти поправки измерены утром эталонной ячейкой и вычтены. R ближе ${CHECK.nearMOhm} мОм к порогу — ячейку переставили и измерили ещё раз. Время — ${TEST30.seconds} с на все ${TEST30.cells} ячеек (вручную — ${ECON.cellNowMin} минут на одну). A и B ещё ${CHECK.selfDischargeDays} дней лежат на полке: просадка больше ${fmtDec(CHECK.selfDischargeMaxV)} В — брак.</p>` : ''}
     </div>
   </div>`;
 }
@@ -196,7 +297,7 @@ function drawTestChart(el) {
   const r = ui.lastRun;
   const cv = el.querySelector('#t30chart');
   if (!r || !cv) return;
-  const col = { A: cssVar('--grade-a'), B: cssVar('--grade-b'), C: cssVar('--grade-c') };
+  const col = { A: cssVar('--grade-a'), B: cssVar('--grade-b'), C: cssVar('--grade-c'), '?': cssVar('--faint') };
   makeChart(cv, {
     type: 'line',
     data: {
@@ -387,7 +488,13 @@ function openAsk(itemId) {
     let result = null;
     const draw = () => {
       body.innerHTML = `<div class="stack">
-        <p class="small">На ноутбуке с Windows выполните в PowerShell (или <code>powercfg /batteryreport</code> в командной строке):</p>
+        <p class="small"><b>QAITA Доктор</b> — одна команда на ноутбуке: читает только железо (батарею, диск, память), файлы и имена не трогает. Откроет паспорт прямо здесь или даст ссылку:</p>
+        <div class="code">Mac и Linux:  sh qaita-doctor.sh\nWindows:  powershell -ExecutionPolicy Bypass -File qaita-doctor.ps1</div>
+        <p class="xs muted">Скрипты — в папке <code>check/doctor</code> репозитория. Ноутбук с паролем — загрузочная флешка с тем же скриптом.</p>
+        <textarea class="input" id="psPaste" rows="3" placeholder="Вставьте ссылку или паспорт из QAITA Доктора" aria-label="Паспорт QAITA Доктора"></textarea>
+        <button class="btn primary block" data-paste>Прочитать паспорт</button>
+        <div class="divider"></div>
+        <p class="small">Только батарея на Windows — выполните в PowerShell (или <code>powercfg /batteryreport</code> в командной строке):</p>
         <div class="code" id="psCode">${esc(BATTERY_PS)}</div>
         <button class="btn sm ghost" data-copy style="justify-self:start">Скопировать скрипт</button>
         <div class="divider"></div>
@@ -400,9 +507,10 @@ function openAsk(itemId) {
           <button class="btn primary" type="submit">OK</button>
         </form>
         <p class="error" id="askErr" hidden></p>
-        ${result ? `<div class="card flat center stack" style="gap:6px">
-          <div class="counter">${result.value}%</div><div class="small muted">здоровье батареи · ${num(result.full)} из ${num(result.design)} мВт·ч${result.cycles != null ? ` · ${num(result.cycles)} циклов` : ''}</div>
-          <b style="color:${result.value >= TEST30.sohCutoff ? 'var(--tag-whole)' : 'var(--tag-danger)'}">${result.value >= TEST30.sohCutoff ? `Не ниже ${TEST30.sohCutoff}% — ячейки идут на стенд ТЕСТ-30` : `Ниже ${TEST30.sohCutoff}% — батарея целиком уходит на переработку`}</b>
+        ${result ? `<div class="card flat center stack" style="gap:6px" data-testid="ask-result">
+          ${result.value != null ? `<div class="counter">${result.value}%</div><div class="small muted">здоровье батареи · ${num(result.full)} из ${num(result.design)} ${result.unit || 'мВт·ч'}${result.cycles != null ? ` · ${num(result.cycles)} циклов` : ''}</div>` : '<div class="small muted">Батареи нет — системный блок: диск и память по паспорту</div>'}
+          ${result.passport ? `<div class="xs muted">${esc([result.passport.device.vendor, result.passport.device.model].filter(Boolean).join(' '))}${result.passport.disks.length ? ` · SMART: ${result.passport.disks.every((d) => d.smart === 'ok') ? 'в норме' : 'проверить'}` : ''}</div>` : ''}
+          ${result.value != null ? `<b style="color:${result.value >= TEST30.sohCutoff && !result.pf ? 'var(--tag-whole)' : 'var(--tag-danger)'}">${result.pf ? 'Аварийный флаг чипа — пакет не вскрываем' : result.value >= TEST30.sohCutoff ? `Не ниже ${TEST30.sohCutoff}% — ячейки идут на стенд ТЕСТ-30` : `Ниже ${TEST30.sohCutoff}% — батарея целиком уходит на переработку`}</b>` : ''}
           <button class="btn primary block mt-8" data-save>Сохранить в карточку</button></div>` : ''}
       </div>`;
     };
@@ -426,13 +534,22 @@ function openAsk(itemId) {
       draw();
     });
     body.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-paste]')) {
+        const ps = decodePassport(body.querySelector('#psPaste').value);
+        if (!ps.ok) return err(ps.error);
+        const bt = ps.battery;
+        result = bt ? { full: bt.full, design: bt.design, cycles: bt.cycles, value: bt.soh, source: 'doctor', unit: bt.unit, pf: bt.pf, passport: ps }
+          : { full: null, design: null, cycles: null, value: null, source: 'doctor', unit: null, pf: null, passport: ps };
+        draw();
+        return;
+      }
       if (e.target.closest('[data-copy]')) {
         try { await navigator.clipboard.writeText(BATTERY_PS); toast('Скрипт скопирован'); } catch { toast('Скопируйте скрипт вручную'); }
       }
       if (e.target.closest('[data-save]') && result) {
         askDevice(itemId, result);
         close();
-        toast(`Здоровье батареи: ${result.value}%`);
+        toast(result.value != null ? `Здоровье батареи: ${result.value}%` : 'Паспорт сохранён: батареи нет');
       }
     });
     draw();
@@ -450,7 +567,7 @@ function startRun(el, itemId) {
     ui.running = false;
     render(el, getState());
     const c = ui.lastRun.count;
-    toast(`ТЕСТ-30: A — ${c.A}, B — ${c.B}, C — ${c.C}`);
+    toast(`ТЕСТ-30: A — ${c.A}, B — ${c.B}, C — ${c.C}, спорных — ${c['?']}`);
   }, 1800);
 }
 

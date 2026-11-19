@@ -1,5 +1,5 @@
 // Проверка правила команды «все цифры — из документации»:
-// у каждой строки src/data.js с числом должен быть комментарий `док:` или `демо:` (на этой или предыдущей строке).
+// у каждой строки src/data.js с числом должен быть комментарий `док:`, `демо:` или `README:` (этап 2 «Проверка»; на этой или предыдущей строке).
 // Печатает список значений null — это цифры, которых нет в документации (уточнить у Асмира).
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -18,12 +18,12 @@ lines.forEach((line, i) => {
   if (wasInTemplate && !line.includes('док:')) return; // содержимое многострочной строки (скрипт PowerShell)
   const code = stripStrings(line.split('//')[0]);
   const hasNumber = /(^|[^\w.])\d[\d_]*(\.\d+)?/.test(code);
-  const annotated = (l) => /\/\/.*(док|демо)/.test(l || '');
+  const annotated = (l) => /\/\/.*(док|демо|README)/.test(l || '');
   // комментарий-строка «// док: …» сразу над строкой (до 3 строк выше, только комментарии между ними)
   let block = false;
   for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
     if (!/^\s*\/\//.test(lines[j])) break;
-    if (/док|демо/.test(lines[j])) { block = true; break; }
+    if (/док|демо|README/.test(lines[j])) { block = true; break; }
   }
   if (hasNumber && !annotated(line) && !block) {
     bad++;

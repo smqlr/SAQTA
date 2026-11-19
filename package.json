@@ -5,7 +5,8 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node tests/e2e.mjs",
-    "check-data": "node tests/check-data.mjs"
+    "check-data": "node tests/check-data.mjs",
+    "check-stage": "node tests/check-stage.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {

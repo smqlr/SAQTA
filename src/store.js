@@ -7,10 +7,11 @@ import {
 import { LEAGUE, pointById } from './geo/points.js';
 import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
+import { suggestFromPassport, passportTitle } from './lib/doctor.js';
 import { DAY, pad, num } from './lib/format.js';
 
 const KEY = 'qaita-v4';
-const VERSION = 4; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных
+const VERSION = 5; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных; 5: этап 2 — паспорт Доктора, заявки Lenovo
 const listeners = new Set();
 let state;
 
@@ -77,6 +78,9 @@ function seedOrders(t) {
     o('w1', 1, SAMPLE_PASSPORT.model, SAMPLE_PASSPORT.part, 'reserved', { deviceNo: SAMPLE_PASSPORT.fromDevice, partNo: SAMPLE_PASSPORT.no }),
     o('w2', 2, 'Lenovo IdeaPad', 'Оперативная память', 'open'),
     o('w3', 3, SAMPLE_PASSPORT.model, SAMPLE_PASSPORT.part, 'open'),
+    // док: «Цены деталей и устройств в приложении» — заявки Lenovo: память — студенту, SSD — мастерской, ячейки — фонарю акимата
+    o('w4', 4, 'Lenovo IdeaPad', 'SSD', 'open'),
+    o('w5', 5, 'Lenovo IdeaPad', '3 ячейки 18650', 'open', { shop: 'Акимат: фонари на остановках' }),
   ];
 }
 
@@ -94,7 +98,7 @@ export function initialState(preset = 'ready') {
     bank: seedBank(t),
     akimat: { kg: { reverse: 0, osi: 0, amnesty: 0, requests: 0, hub: 0 }, events: [] },
     shop: { orders: [], crewEarned: 0 },
-    workshop: { orders: seedOrders(t), seq: 4 },
+    workshop: { orders: seedOrders(t), seq: 6 },
     certs: [],
     osi: { balance: 0, tags: [], home: null },
     test30Runs: 0,
@@ -307,17 +311,33 @@ export function triage(itemId, tag) {
   commit({ type: 'triage', item });
 }
 
-export function askDevice(itemId, { full, design, cycles, source }) {
+export function askDevice(itemId, { full, design, cycles, source, unit = null, pf = null, passport = null }) {
   const item = state.hub.queue.find((x) => x.id === itemId);
   if (!item) return;
-  item.soh = { full, design, cycles: cycles ?? null, value: Math.round((full / design) * 100), source, ts: now() };
+  item.soh = { full, design, cycles: cycles ?? null, value: full && design ? Math.round((full / design) * 100) : null, source, unit, pf, passport, ts: now() };
   commit({ type: 'ask', item });
+}
+
+// Паспорт QAITA Доктора со ссылки: ноутбук на столе приёма сам рассказал о себе → новая карточка в очереди
+export function importPassport(ps) {
+  const b = ps.battery;
+  const item = {
+    id: uid(), deviceNo: nextDevice(), exampleId: null, model: passportTitle(ps), type: 'laptop',
+    state: 'включается · прочитан QAITA Доктором', suggestedTag: suggestFromPassport(ps), tag: null, status: 'new',
+    donationId: null, ts: now(), demo: false, fromDoctor: true, test30: null,
+    soh: b ? { full: b.full, design: b.design, cycles: b.cycles, value: b.soh, source: 'doctor', unit: b.unit, pf: b.pf, passport: ps, ts: now() }
+      : { full: null, design: null, cycles: null, value: null, source: 'doctor', unit: null, pf: null, passport: ps, ts: now() },
+  };
+  state.hub.queue.unshift(item);
+  state.hub.selected = item.id;
+  commit({ type: 'doctor', item });
+  return item;
 }
 
 export function runCells(itemId) {
   const item = state.hub.queue.find((x) => x.id === itemId);
   state.test30Runs += 1;
-  const res = runTest30(29 + state.test30Runs);
+  const res = runTest30({ seed: 29 + state.test30Runs, packSoh: item?.soh?.value ?? null, packLabel: item ? `${item.model} · ${item.deviceNo}` : null });
   if (item) item.test30 = { count: res.count, seed: res.seed, ts: now() };
   commit({ type: 'test30', item });
   return res;
