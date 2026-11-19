@@ -229,7 +229,15 @@ function card(st) {
   <h2 class="h-sec">Что будет с вещью</h2>
   <div class="card">${journey(d)}</div>
   ${d.tag === 'danger' ? `<div class="notice danger mt-12"><div class="ico">${ICON.flame}</div><div class="small">Вздутая батарея может загореться. Не заряжай её и не выбрасывай в мусорный бак. Положи в негорючую коробку подальше от тепла.</div></div>` : ''}
+  ${extendHint(d)}
   <button class="btn primary lg block mt-16" data-go="method">${DEVICE_TYPES[d.type].big ? 'Вызвать вывоз' : 'Выбрать, куда сдать'}</button>`;
+}
+// Этап 4: прежде чем сдать, спросить вещь, сколько ей осталось. Вздутую батарею не продлеваем — только в шкаф
+function extendHint(d) {
+  const kind = d.tag === 'danger' ? null : d.type === 'laptop' ? 'laptop' : d.type === 'phone' ? 'phone' : /стиральн/i.test(d.model) ? 'washer' : null;
+  if (!kind) return '';
+  return `<a class="notice hl link mt-12" href="#extend/${kind}" data-testid="extend-hint"><div class="ico">${ICON.heart}</div>
+    <div class="small"><b>Подожди: может, её можно продлить?</b><br>Батарея или деталь из Банка деталей часто дешевле новой вещи в разы. Проверь за минуту — и реши в тенге.</div></a>`;
 }
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 

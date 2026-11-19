@@ -12,6 +12,7 @@ import * as shop from './screens/shop.js';
 import * as osi from './screens/osi.js';
 import * as hub from './screens/hub.js';
 import * as akimat from './screens/akimat.js';
+import * as extendScr from './screens/extend.js';
 import { toast, sheet } from './lib/ui.js';
 import { maybeOnboard, startOnboarding } from './lib/onboarding.js';
 import { mascotFace } from './lib/mascot.js';
@@ -35,7 +36,9 @@ const PARTNERS = [
   { id: 'hub', label: 'Хаб', sub: 'Мастер: проверка, детали, сырьё', icon: ICON.hub, mod: hub, wide: true },
   { id: 'akimat', label: 'Акимат', sub: 'Панель города', icon: ICON.akimat, mod: akimat, wide: true },
 ];
-const ALL = [...RESIDENT, ...PARTNERS];
+// Экраны жителя без вкладки в нижнем меню: «Продлить жизнь» открывается с главной и с карточки вещи
+const EXTRA = [{ id: 'extend', label: 'Продлить', icon: ICON.heart, mod: extendScr }];
+const ALL = [...RESIDENT, ...PARTNERS, ...EXTRA];
 const isPartner = (s) => PARTNERS.includes(s);
 
 // ── Тема: по умолчанию как в системе (телефон или браузер); в меню «Житель ▾ → Показ» можно выбрать светлую или тёмную ──

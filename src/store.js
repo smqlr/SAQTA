@@ -12,7 +12,7 @@ import { planFor, binOf } from './lib/sort.js';
 import { DAY, pad, num } from './lib/format.js';
 
 const KEY = 'saqta-v4';
-const VERSION = 6; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных; 5: этап 2 — паспорт Доктора, заявки Lenovo; 6: этап 3 — сортировка
+const VERSION = 7; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных; 5: этап 2 — паспорт Доктора, заявки Lenovo; 6: этап 3 — сортировка; 7: этап 4 — продление
 const listeners = new Set();
 let state;
 
@@ -104,6 +104,7 @@ export function initialState(preset = 'ready') {
     osi: { balance: 0, tags: [], home: null },
     test30Runs: 0,
     sort: { bins: {}, lots: [], seq: 0, flag: false, last: null },
+    extend: { tickets: [], seq: 1 },
   };
   if (preset === 'ready') {
     // Решение команды 18.11: в демо-кошельке «сдача ноутбука +200» и «роялти +1 120» (итого 1 320)
@@ -508,6 +509,53 @@ export function shipLot(binId) {
 }
 export const lotTargetKg = (binId) => binOf(binId)?.lotKg ?? null;
 export const SORT_BIN_IDS = SORT_BINS.map((b) => b.id);
+
+// ── Этап 4: продление ───────────────────────────────────────────────────────
+// Житель заказал пересадку: деталь из Банка деталей резервируем, если она лежит на полке, иначе — заявка, и дерево
+// разборки этапа 3 снимет её с первой подходящей вещи (заявка поднимает P(купят) с 0,2 до 0,9). Каждой вещи —
+// обратный билет: когда она всё-таки умрёт, её сдают по этой записи. «Чинить не нужно» — вещь ставим на учёт с напоминанием.
+const YEAR = 365.25 * DAY;
+const TRANSPLANT = 'Пересадка жителю';
+export function orderExtension({ kind, title, input, decision: d }) {
+  const t = { id: uid(), no: `T-${pad(state.extend.seq++, 4)}`, ts: now(), kind, title, input, verdict: d.verdict, orders: [] };
+  if (d.verdict === 'extend') {
+    const fixes = d.staves.filter((s) => d.best.fixes.includes(s.id));
+    Object.assign(t, {
+      fixes: fixes.map((s) => s.fix.name), cost: d.best.cost, gain: d.best.gain, life: d.best.T,
+      until: now() + d.best.T * YEAR, kgSaved: d.kgSaved, saved: d.saved,
+    });
+    for (const s of fixes) {
+      if (!s.fix.bank) continue;
+      const { model, part } = s.fix.bank;
+      const free = state.bank.find((p) => !p.sold && !p.orderId && p.model === model && p.part === part);
+      const o = { id: uid(), no: state.workshop.seq++, shop: TRANSPLANT, model, part, status: free ? 'reserved' : 'open', ts: now(), ticketNo: t.no };
+      if (free) Object.assign(o, { partNo: free.passportNo, deviceNo: free.fromDevice });
+      if (free) Object.assign(free, { orderId: o.id, hasOrder: true });
+      state.workshop.orders.push(o);
+      t.orders.push(o.id);
+    }
+    note('Пересадка заказана', `${title}: ${t.fixes.join(' и ').toLowerCase()} — ещё ${Math.round(d.best.gain * 10) / 10} г. жизни. Обратный билет ${t.no}: когда вещь всё-таки умрёт, сдать её — один тап.`, 'info');
+  } else {
+    Object.assign(t, { until: now() + d.T0 * YEAR, remindTs: now() + Math.max(0, d.T0 * YEAR - 30 * DAY), weakest: d.weakest?.name || null });
+    note('Вещь на учёте', `${title}: проживёт ещё ≈ ${Math.round(d.T0 * 10) / 10} г. Напомним за месяц до того, как кончится «${(d.weakest?.name || '').toLowerCase()}».`, 'info');
+  }
+  state.extend.tickets.unshift(t);
+  commit({ type: 'extend', ticket: t });
+  return t;
+}
+// Что сейчас с пересадкой: деталь отложена в банке, ждём донора или выдана мастерской
+export function ticketStatus(t) {
+  if (t.verdict !== 'extend') return 'на учёте: напомним заранее';
+  const os = t.orders.map((id) => state.workshop.orders.find((o) => o.id === id)).filter(Boolean);
+  if (!os.length) return 'мастерская-партнёр: детали новые';
+  if (os.every((o) => o.status === 'done')) return 'деталь выдана мастерской';
+  if (os.some((o) => o.status === 'open')) return 'ждём донора: дерево разборки снимет деталь с первой подходящей вещи';
+  return `деталь в Банке отложена для тебя: ${os.map((o) => o.partNo).filter(Boolean).join(', ')}`;
+}
+export const extendTotals = () => {
+  const ext = state.extend.tickets.filter((t) => t.verdict === 'extend');
+  return { n: ext.length, kg: Math.round(ext.reduce((a, t) => a + t.kgSaved, 0) * 100) / 100, saved: ext.reduce((a, t) => a + t.saved, 0), watch: state.extend.tickets.length - ext.length };
+};
 
 export const SAMPLE_TAG = SAMPLE_TAG_NO;
 export const PARTS_DAYS = PARTS;

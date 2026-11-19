@@ -353,6 +353,66 @@ export const SORT_ROP = {
   screen: 'Телевизоры и мониторы', small: 'Мелкая бытовая: чайники, пылесосы, микроволновки, игрушки', cable: 'Мелкая бытовая: чайники, пылесосы, микроволновки, игрушки',
 };
 
+// ── Этап 4 «Продли» ─────────────────────────────────────────────────────────
+// README, раздел «Этап 4. Сокращение»: цены — медианы Kaspi (Актобе) и прайсы мастерских на OLX.kz за 18–19.11.2026
+// (полные списки цен, номера объявлений и расчёт — extend/model/extend-model.mjs), сроки службы — EEB (2019) и документация.
+export const EXTEND = {
+  sohEnd: 0.8, // README: батарея рассчитана до 80% ёмкости (Apple; чип MacBook хранит DesignCycleCount = 1 000)
+  kinds: {
+    laptop: { label: 'Ноутбук', life: 4.5, kg: TYPE_KG.laptop, newPrice: 347988, newName: 'Lenovo IdeaPad Slim 3' }, // README: EEB — 4,5 года; Kaspi — медиана 40 цен
+    phone: { label: 'Смартфон', life: 3, kg: TYPE_KG.phone, newPrice: 204516, newName: 'Samsung Galaxy A26' }, // README: EEB — 3 года; Kaspi — медиана 48 цен
+    washer: { label: 'Стиральная машина', life: 10, kg: TYPE_KG.big, newPrice: 138995, newName: 'стиральная машина' }, // док: «стиральную машину раз в 10 лет», 45 кг; README: Kaspi — медиана 44 цен
+  },
+  fixes: {
+    lapBattery: { name: 'Новая батарея', part: 12500, work: 10000, kg: 0.171, where: 'Kaspi и мастерская' }, // README: Kaspi — медиана 48 цен; работа — OLX № 403019370; масса — дерево этапа 3
+    lapSsdBank: { name: 'SSD из Банка деталей', part: 6000, work: 10000, kg: 0.1, bank: { model: 'Lenovo IdeaPad', part: 'SSD' }, where: 'Банк деталей и мастерская' }, // док: SSD Lenovo — 6 000 ₸; README: 2,5″ HDD ≈ 100 г — оценка
+    lapSsdNew: { name: 'Новый SSD 240 ГБ', part: 21480, work: 10000, kg: 0.1, where: 'Kaspi и мастерская' }, // README: Kaspi — медиана 33 цен
+    phoneBattery: { name: 'Замена батареи', part: 0, work: 10000, kg: 0.032, where: 'мастерская, батарея входит в цену' }, // README: OLX № 402585792; масса — дерево этапа 3
+    phoneScreenBank: { name: 'Экран из Банка деталей', part: 4000, work: 2106, kg: 0.04, bank: { model: 'Samsung Galaxy A50', part: 'Экран OLED' }, where: 'Банк деталей и мастерская' }, // док: экран A50 — 4 000 ₸; README: работа = 16 000 − 13 894
+    washerPump: { name: 'Новый сливной насос', part: 4999, work: 12000, kg: 1, where: 'Kaspi и мастер на дом' }, // README: Kaspi — медиана 33 цен; работа 10 000 и диагностика 2 000 (OLX, Актобе); 1 кг — оценка с запасом
+    washerHeater: { name: 'Новый ТЭН', part: 4850, work: 12000, kg: 1, where: 'Kaspi и мастер на дом' }, // README: Kaspi — медиана 47 цен; работа — там же
+    washerBoard: { name: 'Ремонт платы управления', part: 0, work: 22000, kg: 0, where: 'мастер на дом' }, // README: OLX № 290021181 — от 20 000 ₸ и диагностика 2 000
+  },
+  screenMarket: 16000, // README: OLX № 71484181 — дисплей Samsung A50 с работой
+  // Поломки стиральной машины: что видит хозяин и какая доска кончилась
+  faults: {
+    pump: { name: 'Сливной насос', symptom: 'не сливает воду', fix: 'washerPump' },
+    heater: { name: 'ТЭН', symptom: 'не греет воду', fix: 'washerHeater' },
+    board: { name: 'Плата управления', symptom: 'не включается или ошибка на табло', fix: 'washerBoard' },
+  },
+  // Здоровье батареи телефона «по ощущениям», если в настройках его нет (Samsung не показывает)
+  feel: [
+    { id: 'day', label: 'Держит весь день', soh: 0.9 }, // README: оценка
+    { id: 'evening', label: 'До вечера не хватает', soh: 0.78 }, // README: оценка
+    { id: 'hours', label: 'Пара часов', soh: 0.65 }, // README: оценка
+  ],
+  // Закон минимума: класс из 12 одинаковых ноутбуков одной закупки 2021 года (пример для показа, README)
+  fleet: {
+    n: 12, // демо: пример класса
+    age: 5, // демо: закупка 2021 года
+    perUnit: { ssd: 15282 }, // README: новый SSD 128 ГБ — Kaspi, медиана 28 цен
+    unitMin: 20, // README: сборка, SSD и Доктор — 20 мин на ноутбук по ставке кейса (оценка)
+    parts: [
+      { id: 'board', name: 'Плата', gen: 'плат', alive: 11, price: null }, // демо: живых плат; плату не покупаем — это сама вещь
+      { id: 'screen', name: 'Экран', gen: 'экранов', alive: 10, price: null }, // демо: экраны берём только с доноров
+      { id: 'keyboard', name: 'Клавиатура', gen: 'клавиатур', alive: 11, price: null }, // демо: клавиатуры — только с доноров
+      { id: 'battery', name: 'Батарея не ниже 80%', gen: 'батарей', buy: ['батарею', 'батареи', 'батарей'], alive: 4, price: 12500 }, // демо: по чипам; README: новая — Kaspi, медиана 48 цен
+      { id: 'charger', name: 'Зарядка', gen: 'зарядок', buy: ['зарядку', 'зарядки', 'зарядок'], alive: 8, price: 4990 }, // демо: живых зарядок; README: Kaspi, медиана 3 цен
+    ],
+  },
+  repair: { phoneLaptop: 213, washer: 29 }, // README: 2ГИС, Актобе — мастерские по ремонту телефонов и ноутбуков (18.11) и стиральных машин (19.11)
+  market: { iphone: 61, samsung: 1.8 }, // README: доля объявлений б/у в Актобе (OLX, 19.11.2026), где написано здоровье батареи
+  cityGrowth: 0.1, // README: пример «+10% к сроку службы всей техники города»
+  // План пилота этапа 4 — считает extend/model/extend-model.mjs, проверяет npm run extend-stage
+  pilot: {
+    residents: 253, residentsKg: 777, // README: «Подожди — можно продлить»: 8 000 сдач и 1 200 вывозов × 11% (WRAP) × каждый четвёртый
+    family: 300, familyKg: 5419, // README: «Обратный рейс» — рабочую старую технику в семью: 2 500 × 12% (WRAP)
+    classes: 10, laptops: 100, // README: школы — закон минимума, 10 классов по примеру
+    foreverT: 6.3, deferredT: 13.6, // README: отходов не родится навсегда / не придут в мусор за пилот
+    savedMln: 20.3, procurementMln: 34.8, // README: сбережения жителей; закупка ноутбуков, отложенная на 1,9 года
+  },
+};
+
 // ── Банк деталей ────────────────────────────────────────────────────────────
 export const PARTS = {
   warrantyDays: 30, // док: QR-паспорт и гарантия 30 дней

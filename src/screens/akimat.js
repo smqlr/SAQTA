@@ -1,17 +1,25 @@
 // Экран «Акимат»: счётчик тонн к цели 229,6 т, тонны по каналам, деньги РОП, рейтинг школ, сценарии.
-import { PILOT, ROP, SCENARIOS, BONUS_TOTALS, SCHOOL_LEAGUE, WEIGHT_KG } from '../data.js';
+import { PILOT, ROP, SCENARIOS, BONUS_TOTALS, SCHOOL_LEAGUE, WEIGHT_KG, EXTEND, EV } from '../data.js';
+import { fleet, restLife, lessWaste } from '../lib/extend.js';
+import { demoMark } from '../lib/ui.js';
 import { num, num1, num2, tenge, dateTime, esc } from '../lib/format.js';
 import { ICON } from '../lib/icons.js';
 import { makeChart, destroyCharts, cssVar } from '../lib/charts.js';
-import { pointCounts } from '../store.js';
+import { pointCounts, extendTotals } from '../store.js';
 import { LEAGUE, BOXES, HUB, AKIMAT_PT, LANDFILLS } from '../geo/points.js';
 import { geo } from '../lib/map/geo.js';
 import { mountMap, setPins, setArea, fitTo } from '../lib/map/view.js';
 
-let ui = { scenario: 'base', fitted: false };
+let ui = { scenario: 'base', fitted: false, life: Math.round(EXTEND.cityGrowth * 100) };
 let lastKg = null;
 export function home() {}
 
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
 const SHORT = ['Мелкая бытовая', 'Крупная', 'Холодильники', 'ТВ и мониторы', 'Телефоны, ноутбуки', 'Лампы', 'Солнечные панели'];
 
 export function render(el, st) {
@@ -73,6 +81,8 @@ export function render(el, st) {
       <div class="map-card tall"><div class="map-slot" data-map></div></div>
       <p class="xs muted mt-8">Сдано через школы и боксы: ${num(viaPoints)} шт. Цифра у точки — сколько вещей туда сдали. Сейчас техника из баков уходит на полигон ТБО, где мусор горит годами. Адреса: © участники OpenStreetMap, ${geo().date.split('-').reverse().join('.')}.</p>
     </section>
+
+    <section class="card span-12" aria-label="Сокращение отходов" data-testid="reduce">${reduceCard()}</section>
 
     <section class="card span-12" aria-label="Калькулятор сценариев">
       <div class="card-title"><h2>Сценарии пилота</h2>
@@ -140,6 +150,74 @@ export function render(el, st) {
     const b = e.target.closest('[data-sc]');
     if (b) { ui.scenario = b.dataset.sc; render(el, st); }
   };
+  // Ползунок срока службы: меняем только цифры, без перерисовки панели
+  el.oninput = (e) => {
+    if (e.target.id !== 'lifeRange') return;
+    ui.life = +e.target.value;
+    el.querySelector('#lifeOut').textContent = `+${ui.life}%`;
+    el.querySelector('[data-testid="less-waste"]').innerHTML = lessWasteHtml();
+  };
+}
+
+// ── Этап 4 «Продли»: количество отходов уменьшает только длинная жизнь ─────────
+const lessWasteHtml = () => `−${num(Math.round(lessWaste(ROP.totalT, ui.life / 100)))} <small>т отходов в год</small>`;
+function fleetCalc() {
+  const f = EXTEND.fleet;
+  const kd = EXTEND.kinds.laptop;
+  const years = restLife(f.age, kd.life);
+  const perUnit = f.perUnit.ssd + Math.round(f.unitMin * EV.tengePerMinute);
+  return { f, kd, years, perUnit, r: fleet({ n: f.n, parts: f.parts, perUnit, years, newPrice: kd.newPrice, life: kd.life }) };
+}
+function reduceCard() {
+  const tot = extendTotals();
+  const P = EXTEND.pilot;
+  const { f, kd, years, r } = fleetCalc();
+  const part = (id) => f.parts.find((p) => p.id === id);
+  const partName = (id) => part(id).name.split(' ')[0].toLowerCase();
+  // Ступеньки цены: подряд идущие ноутбуки с одним набором покупок — одна строка
+  const steps = [];
+  for (const u of r.units.slice(0, r.built)) {
+    const key = u.buy.join('+');
+    const last = steps[steps.length - 1];
+    if (last && last.key === key) last.to = u.u;
+    else steps.push({ key, from: u.u, to: u.u, buy: u.buy, marginal: u.marginal });
+  }
+  const bought = Object.entries(r.missing).filter(([, v]) => v > 0).map(([id, v]) => `${num(v)} ${plural(v, ...part(id).buy)}`).join(' и ');
+  const times = (v) => { const x = Math.round(v * 10) / 10; return Number.isInteger(x) ? `${num(x)} ${plural(x, 'раз', 'раза', 'раз')}` : `${num1(x)} раза`; };
+  return `
+  <div class="card-title"><h2>Сокращение: техника живёт дольше</h2><span class="xs muted">этап 4 «Продли»</span></div>
+  <div class="dash">
+    <div class="span-5">
+      <p class="small">Отходов в год = <b>парк × масса ÷ срок службы</b>. Сбор и сортировка меняют судьбу отходов, а их количество уменьшает только длинная жизнь вещей.</p>
+      <div class="row between mt-12"><span class="small">Вся техника города живёт дольше на</span><b class="num" id="lifeOut">+${ui.life}%</b></div>
+      <input type="range" class="range" id="lifeRange" min="0" max="30" step="5" value="${ui.life}" aria-label="На сколько дольше живёт техника города">
+      <div class="counter mt-8" data-testid="less-waste">${lessWasteHtml()}</div>
+      <p class="xs muted">Из ${num(ROP.totalT)} т в год. Для сравнения: сбор пилота — ${num1(PILOT.goalT)} т за 6 месяцев.</p>
+      <div class="section-label mt-16">План пилота</div>
+      <div class="list">
+        <div class="li"><div class="ico">${ICON.heart}</div><div class="grow small"><b>«Подожди — можно продлить»</b><div class="xs muted">экран «Сдать» и вывоз: ${num(P.residents)} ${plural(P.residents, 'вещь', 'вещи', 'вещей')}</div></div><div class="amt">${num(P.residentsKg)} кг</div></div>
+        <div class="li"><div class="ico">${ICON.truck}</div><div class="grow small"><b>«Обратный рейс» → вторая семья</b><div class="xs muted">рабочая старая техника с паспортом: ${num(P.family)} ${plural(P.family, 'вещь', 'вещи', 'вещей')}</div></div><div class="amt">${num1(P.familyKg / 1000)} т</div></div>
+        <div class="li"><div class="ico">${ICON.school}</div><div class="grow small"><b>Школы: закон минимума</b><div class="xs muted">${num(P.classes)} классов, ${num(P.laptops)} ноутбуков снова в работе</div></div><div class="amt">${num1(P.procurementMln)} млн ₸</div></div>
+      </div>
+      <p class="xs muted mt-8">Итого: <b>${num1(P.foreverT)} т</b> отходов не родится, ${num1(P.deferredT)} т не придут в мусор за пилот, жители сберегут ≈ ${num1(P.savedMln)} млн ₸. Килограммы — только за добавленные годы: m × ΔL ÷ L.</p>
+      <div class="kpis mt-12" style="grid-template-columns:repeat(3,1fr)" data-testid="extend-fact">
+        <div class="kpi"><div class="v">${num(tot.n)}</div><div class="l">продлено в приложении</div></div>
+        <div class="kpi"><div class="v">${num1(tot.kg)}</div><div class="l">кг не родится</div></div>
+        <div class="kpi"><div class="v">${num(Math.round(tot.saved / 1000))}</div><div class="l">тыс. ₸ у жителей</div></div>
+      </div>
+    </div>
+    <div class="span-7">
+      <div class="row between wrap" style="gap:8px"><b>Закон минимума: класс из ${num(f.n)} ноутбуков одной закупки</b>${demoMark('пример')}</div>
+      <div class="table-wrap mt-8"><table>
+        <thead><tr><th>Деталь</th><th class="r">Живых</th><th class="r">Докупить</th></tr></thead>
+        <tbody>${f.parts.map((p) => `<tr${p.id === r.scarce.id ? ' class="hl"' : ''}><td class="small">${esc(p.name)}</td><td class="r">${num(p.alive)}</td><td class="r">${p.price == null ? '<span class="muted">не покупаем</span>' : r.missing[p.id] ? `${num(r.missing[p.id])} × ${tenge(p.price)}` : '—'}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="list mt-8" data-testid="fleet-steps">${steps.map((x) => `<div class="li"><div class="ico num-ico" style="width:auto;min-width:32px;padding:0 8px;white-space:nowrap">${x.from === x.to ? x.from : `${x.from}–${x.to}`}</div><div class="grow small">${x.buy.length ? `докупить: ${x.buy.map(partName).join(' и ')}` : 'только SSD и 20 минут хаба'}</div><div class="amt">${tenge(x.marginal)}</div></div>`).join('')}</div>
+      <p class="small mt-8" data-testid="fleet-result">Без покупок ${plural(r.free, 'собирается', 'собираются', 'собираются')} <b>${num(r.free)} ${plural(r.free, 'ноутбук', 'ноутбука', 'ноутбуков')}</b>: меньше всего живых ${esc(r.scarce.gen)} — как бочка Либиха держит воду до самой короткой доски.
+        Докупив ${esc(bought)}, класс получает <b>${num(r.built)} ноутбуков за ${tenge(r.cost)}</b> вместо ${tenge(r.built * kd.newPrice)} за новые.
+        Год работы ноутбука — ${tenge(Math.round(r.perYear))} против ${tenge(Math.round(r.newPerYear))}: в ${times(r.newPerYear / r.perYear)} дешевле, закупка откладывается на ${num1(Math.round(years * 10) / 10)} года. ${num(r.donors)} ${plural(r.donors, 'ноутбук', 'ноутбука', 'ноутбуков')} без живой платы или экрана — доноры для Банка деталей.</p>
+    </div>
+  </div>`;
 }
 
 // Заявки с адресами: вывоз крупной техники жителям, бирки ОСИ, «Обратный рейс»

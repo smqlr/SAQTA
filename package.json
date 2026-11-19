@@ -8,6 +8,7 @@
     "check-data": "node tests/check-data.mjs",
     "check-stage": "node tests/check-stage.mjs",
     "sort-stage": "node tests/sort-stage.mjs",
+    "extend-stage": "node tests/extend-stage.mjs",
     "test:pwa": "node tests/pwa.mjs"
   },
   "license": "UNLICENSED",

@@ -55,6 +55,8 @@ export function render(el, st) {
       </a>
     </div>
 
+    <a class="banner green" href="#extend" data-testid="cta-extend"><span class="b-ico">${ICON.heart}</span><div><b>Не выбрасывай — продли</b><span>Сколько вещи осталось жить и что продлит её дешевле новой</span></div></a>
+
     ${st.tazaru
       ? `<a class="banner" href="#resident"><span class="b-ico">${ICON.sun}</span><div><b>Неделя Тазару күні</b><span>Бонусы × 2 за любую сданную вещь</span></div></a>`
       : `<button class="banner mascot" data-chat><span class="m-face">${mascotFace('talk')}</span><div><b>Спроси Сактика</b><span>Куда сдать, как стереть данные, сколько бонусов — отвечу на любой вопрос</span></div></button>`}
