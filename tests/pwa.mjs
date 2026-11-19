@@ -61,6 +61,16 @@ ok(await page.evaluate(() => !!document.querySelector('.tabbar')), 'без ин�
 ok(!errors.length, `ошибок в консоли нет${errors.length ? ': ' + errors.join(' | ') : ''}`);
 await ctx.close();
 
+// Первый запуск на телефоне: житель сначала проходит знакомство с Кайтиком, потом видит плашку установки
+async function finishOnboarding(p) {
+  if (!(await p.$('.onb'))) return;
+  for (let i = 0; i < 4; i++) await p.click('[data-onb="next"]');
+  await p.fill('#onbName', 'Айгерим');
+  await p.click('[data-onb="issue"]');
+  await p.click('[data-onb="done"]');
+  await p.waitForTimeout(200);
+}
+
 console.log('2. Телефоны');
 for (const [name, dev] of [['Android', devices['Pixel 7']], ['iPhone', devices['iPhone 13']]]) {
   const c = await browser.newContext({ ...dev });
@@ -68,6 +78,7 @@ for (const [name, dev] of [['Android', devices['Pixel 7']], ['iPhone', devices['
   await p.goto(`${URL_}#resident`);
   await p.waitForTimeout(600);
   ok(await p.isVisible('.install-bar'), `${name}: плашка «Установите QAITA»`);
+  await finishOnboarding(p);
   await p.click('.install-bar [data-install]');
   const text = await p.textContent('.sheet');
   ok(name === 'iPhone' ? text.includes('На экран') : text.includes('Установить приложение'), `${name}: шаги установки для своей системы`);

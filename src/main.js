@@ -1,27 +1,43 @@
+// Оболочка QAITA: приложение жителя (нижнее меню) и партнёрские режимы (магазин, ОСИ, хаб, акимат).
 import { APP_NAME, SLOGAN } from './data.js';
 import { ICON } from './lib/icons.js';
 import { getState, subscribe, reset, setTazaru, unreadCount } from './store.js';
+import * as homeScr from './screens/home.js';
+import * as points from './screens/points.js';
 import * as resident from './screens/resident.js';
 import * as wallet from './screens/wallet.js';
+import * as profile from './screens/profile.js';
 import * as shop from './screens/shop.js';
 import * as osi from './screens/osi.js';
 import * as hub from './screens/hub.js';
 import * as akimat from './screens/akimat.js';
-import { toast } from './lib/ui.js';
+import { toast, sheet } from './lib/ui.js';
+import { maybeOnboard, startOnboarding } from './lib/onboarding.js';
+import { mascotFace } from './lib/mascot.js';
+import { openChat } from './lib/chat.js';
+import { esc } from './lib/format.js';
 import { initInstall, install, isStandalone, bannerWanted, dismissBanner, onInstallChange } from './lib/install.js';
 import { refreshMaps } from './lib/map/view.js';
 
-// Порядок экранов — из плана команды: Житель · Кошелёк · Магазин · ОСИ · Хаб · Акимат
-const SCREENS = [
-  { id: 'resident', label: 'Житель', icon: ICON.resident, mod: resident },
+// Приложение жителя — нижнее меню; «Сдать» — большая кнопка по центру
+const RESIDENT = [
+  { id: 'home', label: 'Главная', icon: ICON.home, mod: homeScr },
+  { id: 'points', label: 'Карта', icon: ICON.map, mod: points },
+  { id: 'resident', label: 'Сдать', icon: ICON.camera, mod: resident, main: true },
   { id: 'wallet', label: 'Кошелёк', icon: ICON.wallet, mod: wallet },
-  { id: 'shop', label: 'Магазин', icon: ICON.shop, mod: shop },
-  { id: 'osi', label: 'ОСИ', icon: ICON.osi, mod: osi },
-  { id: 'hub', label: 'Хаб', icon: ICON.hub, mod: hub },
-  { id: 'akimat', label: 'Акимат', icon: ICON.akimat, mod: akimat },
+  { id: 'profile', label: 'Профиль', icon: ICON.resident, mod: profile },
 ];
+// Партнёрские режимы: у каждого свой экран, переключение — чипами сверху
+const PARTNERS = [
+  { id: 'shop', label: 'Магазин', sub: 'Экипаж: «Обратный рейс»', icon: ICON.shop, mod: shop },
+  { id: 'osi', label: 'ОСИ', sub: '«Бирка у бака»', icon: ICON.osi, mod: osi },
+  { id: 'hub', label: 'Хаб', sub: 'Мастер: проверка, детали, сырьё', icon: ICON.hub, mod: hub, wide: true },
+  { id: 'akimat', label: 'Акимат', sub: 'Панель города', icon: ICON.akimat, mod: akimat, wide: true },
+];
+const ALL = [...RESIDENT, ...PARTNERS];
+const isPartner = (s) => PARTNERS.includes(s);
 
-// ── Тема: по умолчанию как в системе (телефон или браузер); в меню ⋯ можно выбрать светлую или тёмную ──
+// ── Тема: по умолчанию как в системе (телефон или браузер); в меню «Житель ▾ → Показ» можно выбрать светлую или тёмную ──
 const THEME_KEY = 'qaita-theme-mode';
 const THEME_MODES = [['system', 'Системная'], ['light', 'Светлая'], ['dark', 'Тёмная']];
 const THEME_BAR = { light: '#f9f9fb', dark: '#161618' };
@@ -46,31 +62,43 @@ applyTheme();
 document.title = APP_NAME;
 const app = document.getElementById('app');
 app.innerHTML = `
-  <header class="topbar">
-    <div class="topbar-in">
-      <div class="brand"><span class="brand-mark">${ICON.logo}</span><span class="brand-name">${APP_NAME}</span></div>
-      <nav class="tabs" aria-label="Разделы"><div class="tabs-track" role="tablist">
-        ${SCREENS.map((s) => `<button class="tab" role="tab" data-screen="${s.id}" aria-selected="false">${s.icon}<span>${s.label}</span></button>`).join('')}
-      </div></nav>
-      <button class="icon-btn" id="menuBtn" aria-label="Настройки" aria-haspopup="true" aria-expanded="false">${ICON.more}</button>
-    </div>
-  </header>
+  <header class="topbar" id="topbar"><div class="topbar-in" id="topIn"></div></header>
   <main class="view" id="view" tabindex="-1"></main>
   <div class="install-slot"></div>
-  <nav class="tabbar" aria-label="Разделы"><div class="tabbar-in" role="tablist">
-    ${SCREENS.map((s) => `<button class="tab" role="tab" data-screen="${s.id}" aria-selected="false">${s.icon}<span>${s.label}</span></button>`).join('')}
+  <nav class="tabbar" id="tabbar" aria-label="Разделы"><div class="tabbar-in">
+    ${RESIDENT.map((s) => `<a class="tb${s.main ? ' main' : ''}" href="#${s.id}" data-screen="${s.id}">${s.main ? `<span class="main-btn">${s.icon}</span>` : s.icon}<span>${s.label}</span></a>`).join('')}
   </div></nav>`;
-// На телефоне вкладки внизу, как в приложении (.tabbar); на компьютере — сверху (.tabs). CSS показывает одну из них.
 
 const view = document.getElementById('view');
+const topIn = document.getElementById('topIn');
+const tabbar = document.getElementById('tabbar');
 let current = null;
 
+function topbarHtml(s) {
+  if (isPartner(s)) {
+    return `<a class="brand" href="#home" aria-label="В приложение жителя"><span class="brand-mark">${ICON.logo}</span></a>
+      <nav class="mode-chips" aria-label="Партнёрские режимы">${PARTNERS.map((p) => `<a class="mode-chip" href="#${p.id}" ${p === s ? 'aria-current="page"' : ''}>${p.icon}${p.label}</a>`).join('')}</nav>
+      <button class="role-btn" id="menuBtn" aria-haspopup="dialog">Режим ${ICON.chevDown}</button>`;
+  }
+  const unread = unreadCount();
+  return `<a class="brand" href="#home"><span class="brand-mark">${ICON.logo}</span><span class="brand-name">${APP_NAME}</span></a>
+    <span class="top-grow"></span>
+    <button class="ask-btn" id="askBtn" aria-label="Спросить Кайтика">${mascotFace('happy')}</button>
+    <a class="icon-btn bell" href="#wallet" aria-label="Уведомления${unread ? `: ${unread} новых` : ''}">${ICON.bell}${unread ? '<i class="dot"></i>' : ''}</a>
+    <button class="role-btn" id="menuBtn" aria-haspopup="dialog">Житель ${ICON.chevDown}</button>`;
+}
+
 function route() {
-  const id = (location.hash || '#resident').slice(1).split('/')[0];
-  const s = SCREENS.find((x) => x.id === id) || SCREENS[0];
+  const [id, param] = (location.hash || '#home').slice(1).split('/');
+  const s = ALL.find((x) => x.id === id) || RESIDENT[0];
   const changed = current !== s;
+  if (changed && current?.mod.leave) current.mod.leave();
   current = s;
-  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.screen === s.id)));
+  if (param != null && s.mod.open) s.mod.open(decodeURIComponent(param));
+  document.getElementById('topbar').classList.toggle('wide', !!s.wide);
+  view.classList.toggle('wide', !!s.wide);
+  tabbar.hidden = isPartner(s);
+  tabbar.querySelectorAll('.tb').forEach((b) => (b.dataset.screen === s.id ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
   renderCurrent(changed);
   if (changed) { // мягкое появление экрана, как при переходе в приложении
     view.classList.remove('enter');
@@ -81,23 +109,23 @@ function route() {
 
 function renderCurrent(scrollTop = false) {
   const st = getState();
-  // точка на вкладке «Кошелёк», если есть непрочитанные уведомления
-  document.querySelectorAll('.tab[data-screen="wallet"]').forEach((wTab) => {
-    wTab.querySelector('.dot')?.remove();
-    if (unreadCount() && current.id !== 'wallet') wTab.insertAdjacentHTML('beforeend', '<i class="dot" aria-label="новое уведомление"></i>');
-  });
+  topIn.innerHTML = topbarHtml(current);
+  const wTab = tabbar.querySelector('.tb[data-screen="wallet"]');
+  wTab.querySelector('.dot')?.remove();
+  if (unreadCount() && current.id !== 'wallet') wTab.insertAdjacentHTML('beforeend', '<i class="dot" aria-label="новое уведомление"></i>');
   current.mod.render(view, st);
   if (scrollTop) window.scrollTo({ top: 0 });
 }
 
-document.querySelectorAll('.tabs, .tabbar').forEach((nav) => nav.addEventListener('click', (e) => {
-  const b = e.target.closest('.tab');
+// Нажатие на текущую вкладку возвращает раздел в начало
+tabbar.addEventListener('click', (e) => {
+  const b = e.target.closest('.tb');
   if (!b) return;
-  if (location.hash.slice(1).split('/')[0] === b.dataset.screen) current.mod.home?.();
-  location.hash = b.dataset.screen;
-  if (current?.id === b.dataset.screen) renderCurrent(true);
-}));
+  if (location.hash.slice(1).split('/')[0] === b.dataset.screen) { current.mod.home?.(); renderCurrent(true); }
+});
 window.addEventListener('hashchange', route);
+window.addEventListener('qaita:onboarded', () => renderCurrent(true));
+window.addEventListener('qaita:profile', () => renderCurrent(false));
 subscribe(() => renderCurrent(false));
 
 // Смена темы: графики и плитки карты берут цвета темы при отрисовке, поэтому перерисовываем их
@@ -117,54 +145,54 @@ function setThemeMode(next) {
 // Телефон перешёл в ночной режим — при «Системной» приложение меняет тему сразу
 systemDark.addEventListener?.('change', () => { if (themeMode() === 'system') themeChanged(); });
 
-// ── Меню настроек ──────────────────────────────────────────────────────
-const menuBtn = document.getElementById('menuBtn');
-function closeMenu() { document.querySelector('.menu')?.remove(); menuBtn.setAttribute('aria-expanded', 'false'); }
-menuBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  if (document.querySelector('.menu')) return closeMenu();
+// ── Режим: житель или партнёр, плюс настройки показа ───────────────────────
+topIn.addEventListener('click', (e) => {
+  if (e.target.closest('#askBtn')) return openChat();
+  if (!e.target.closest('#menuBtn')) return;
   const st = getState();
-  const m = document.createElement('div');
-  m.className = 'menu';
-  m.setAttribute('role', 'menu');
-  m.innerHTML = `
-    <div class="menu-cap">${APP_NAME} · ${SLOGAN}</div>
-    <button data-act="tazaru" role="menuitemcheckbox" aria-checked="${st.tazaru}"><div class="grow"><b>Неделя Тазару күні</b><div class="xs muted">Бонусы × 2 за сданную технику</div></div><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
-    <div class="menu-theme">
-      <div><b>Оформление</b><div class="xs muted">Системная — как в телефоне или браузере</div></div>
-      <div class="seg block" role="group" aria-label="Оформление">${THEME_MODES.map(([v, l]) => `<button data-theme-mode="${v}" aria-pressed="${themeMode() === v}">${l}</button>`).join('')}</div>
-    </div>
-    ${isStandalone() ? '' : `<hr>
-    <button data-act="install" role="menuitem">${ICON.install}<div><b>Установить на телефон</b><div class="xs muted">Иконка на рабочем столе, без адресной строки</div></div></button>`}
-    <hr>
-    <button data-act="ready" role="menuitem">${ICON.wallet}<div><b>Кошелёк с историей</b><div class="xs muted">1 320 бонусов: ноутбук и роялти</div></div></button>
-    <button data-act="clean" role="menuitem">${ICON.reset}<div><b>Начать с нуля</b><div class="xs muted">Пустой кошелёк, без заявок</div></div></button>`;
-  document.querySelector('.topbar').appendChild(m);
-  menuBtn.setAttribute('aria-expanded', 'true');
-  m.addEventListener('click', (ev) => {
-    const b = ev.target.closest('button');
-    if (!b) return;
-    ev.stopPropagation();
-    if (b.dataset.themeMode) { // меню остаётся открытым: видно, как меняется оформление
-      setThemeMode(b.dataset.themeMode);
-      m.querySelectorAll('[data-theme-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-      return;
-    }
-    const act = b.dataset.act;
-    if (act === 'install') install();
-    if (act === 'tazaru') { setTazaru(!getState().tazaru); toast(getState().tazaru ? 'Тазару күні: бонусы × 2' : 'Тазару күні выключен'); }
-    if (act === 'clean' || act === 'ready') {
-      SCREENS.forEach((s) => s.mod.home?.());
-      reset(act);
-      toast(act === 'clean' ? 'Данные очищены' : 'Кошелёк с историей загружен');
-    }
-    closeMenu();
+  sheet('Кто ты сегодня?', (body, close) => {
+    body.innerHTML = `<div class="menu">
+      <div class="rows">
+        <a class="rowi" href="#home" data-close-go><span class="r-ico" style="background:var(--brand-soft);color:var(--brand)">${ICON.resident}</span><span class="grow">Житель<small>Приложение QAITA: сдать технику, бонусы</small></span>${current && !isPartner(current) ? ICON.check : ''}</a>
+        ${PARTNERS.map((p) => `<a class="rowi" href="#${p.id}" data-close-go><span class="r-ico">${p.icon}</span><span class="grow">${p.label}<small>${esc(p.sub)}</small></span>${current === p ? ICON.check : ''}</a>`).join('')}
+      </div>
+      <div class="section-label mt-16">Показ</div>
+      <div class="rows">
+        <button class="rowi" data-act="tazaru" role="menuitemcheckbox" aria-checked="${st.tazaru}"><span class="r-ico">${ICON.sun}</span><span class="grow">Неделя Тазару күні<small>Бонусы × 2 за сданную технику</small></span><span class="switch ${st.tazaru ? 'on' : ''}"></span></button>
+        <div class="rowi theme-row"><span class="r-ico">${ICON.moon}</span><span class="grow">Оформление<small>Системная — как в телефоне или браузере</small>
+          <span class="seg block mt-8" role="group" aria-label="Оформление">${THEME_MODES.map(([v, l]) => `<button data-theme-mode="${v}" aria-pressed="${themeMode() === v}">${l}</button>`).join('')}</span></span></div>
+        ${isStandalone() ? '' : `<button class="rowi" data-act="install"><span class="r-ico">${ICON.install}</span><span class="grow">Установить на телефон<small>Иконка на рабочем столе, без адресной строки</small></span></button>`}
+        <button class="rowi" data-act="ready"><span class="r-ico">${ICON.wallet}</span><span class="grow">Кошелёк с историей<small>1 320 бонусов: ноутбук и роялти</small></span></button>
+        <button class="rowi" data-act="clean"><span class="r-ico">${ICON.reset}</span><span class="grow">Начать с нуля<small>Пустой кошелёк, без заявок</small></span></button>
+        <button class="rowi" data-act="tour"><span class="r-ico">${ICON.info}</span><span class="grow">Знакомство с Кайтиком<small>Показать обучение заново</small></span></button>
+      </div>
+      <p class="footnote center">${APP_NAME} · ${SLOGAN}</p>
+    </div>`;
+    body.addEventListener('click', (ev) => {
+      if (ev.target.closest('[data-close-go]')) { close(); return; }
+      const tm = ev.target.closest('[data-theme-mode]');
+      if (tm) { // лист остаётся открытым: видно, как меняется оформление
+        setThemeMode(tm.dataset.themeMode);
+        body.querySelectorAll('[data-theme-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === tm)));
+        return;
+      }
+      const b = ev.target.closest('[data-act]');
+      if (!b) return;
+      const act = b.dataset.act;
+      if (act === 'tazaru') { setTazaru(!getState().tazaru); toast(getState().tazaru ? 'Тазару күні: бонусы × 2' : 'Тазару күні выключен'); }
+      if (act === 'clean' || act === 'ready') {
+        ALL.forEach((s) => s.mod.home?.());
+        reset(act);
+        toast(act === 'clean' ? 'Данные очищены' : 'Кошелёк с историей загружен');
+      }
+      close();
+      if (act === 'tour') startOnboarding();
+      if (act === 'install') install(); // своё окно: Android — системная установка, iPhone и офлайн-файл — шаги
+    });
   });
 });
-document.addEventListener('click', (e) => { if (!e.target.closest('.menu')) closeMenu(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
-// ── Установка как приложения ───────────────────────────────────────────
+// ── Установка как приложения: плашка над нижним меню и пункт в меню ─────────
 initInstall();
 function renderInstallBar() {
   const slot = document.querySelector('.install-slot');
@@ -187,6 +215,8 @@ matchMedia('(max-width: 900px)').addEventListener?.('change', renderInstallBar);
 renderInstallBar();
 
 route();
+// Партнёрский режим по прямой ссылке (например, паспорт QAITA Доктора в хабе) открываем без обучения жителя
+if (!/^#(shop|osi|hub|akimat)(\/|$)/.test(location.hash)) maybeOnboard();
 
 // PWA: только когда открыто по http(s) (GitHub Pages). Офлайн-файл с флешки работает без этого.
 if (/^https?:$/.test(location.protocol)) {

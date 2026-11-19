@@ -2,15 +2,17 @@
 // Хранится в localStorage (если доступен), иначе в памяти. «Сбросить демо» возвращает пресет.
 import {
   BONUS, DEVICE_TYPES, EXAMPLES, WALLET, WEIGHT_KG, PARTS, SAMPLE_PASSPORT, SAMPLE_TAG_NO,
-  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, PILOT, SHOP_ITEMS,
+  DEMO_WALLET, LAPTOP_NOTIFICATION, ROP, PILOT, SHOP_ITEMS, SORT_BINS, SORT_FLAG, SORT_ROP,
 } from './data.js';
 import { LEAGUE, pointById } from './geo/points.js';
 import { expectedValue } from './lib/ev.js';
 import { runTest30 } from './lib/test30.js';
+import { suggestFromPassport, passportTitle } from './lib/doctor.js';
+import { planFor, binOf } from './lib/sort.js';
 import { DAY, pad, num } from './lib/format.js';
 
 const KEY = 'qaita-v4';
-const VERSION = 4; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных
+const VERSION = 6; // 2: точки на карте; 3: адреса; 4: заявки мастерских и сертификаты стирания данных; 5: этап 2 — паспорт Доктора, заявки Lenovo; 6: этап 3 — сортировка
 const listeners = new Set();
 let state;
 
@@ -51,7 +53,7 @@ function seedHub(t) {
   };
   return [
     item(781, 'a50', 'triaged'),
-    item(782, 'iphone11', 'new'),
+    item(782, 'galaxyj', 'new'),
     item(783, 'scooter', 'new'),
     item(784, 'nokia105', 'new'),
     item(785, 'kettle', 'new'),
@@ -77,6 +79,9 @@ function seedOrders(t) {
     o('w1', 1, SAMPLE_PASSPORT.model, SAMPLE_PASSPORT.part, 'reserved', { deviceNo: SAMPLE_PASSPORT.fromDevice, partNo: SAMPLE_PASSPORT.no }),
     o('w2', 2, 'Lenovo IdeaPad', 'Оперативная память', 'open'),
     o('w3', 3, SAMPLE_PASSPORT.model, SAMPLE_PASSPORT.part, 'open'),
+    // док: «Цены деталей и устройств в приложении» — заявки Lenovo: память — студенту, SSD — мастерской, ячейки — фонарю акимата
+    o('w4', 4, 'Lenovo IdeaPad', 'SSD', 'open'),
+    o('w5', 5, 'Lenovo IdeaPad', '3 ячейки 18650', 'open', { shop: 'Акимат: фонари на остановках' }),
   ];
 }
 
@@ -94,10 +99,11 @@ export function initialState(preset = 'ready') {
     bank: seedBank(t),
     akimat: { kg: { reverse: 0, osi: 0, amnesty: 0, requests: 0, hub: 0 }, events: [] },
     shop: { orders: [], crewEarned: 0 },
-    workshop: { orders: seedOrders(t), seq: 4 },
+    workshop: { orders: seedOrders(t), seq: 6 },
     certs: [],
     osi: { balance: 0, tags: [], home: null },
     test30Runs: 0,
+    sort: { bins: {}, lots: [], seq: 0, flag: false, last: null },
   };
   if (preset === 'ready') {
     // Решение команды 18.11: в демо-кошельке «сдача ноутбука +200» и «роялти +1 120» (итого 1 320)
@@ -306,17 +312,33 @@ export function triage(itemId, tag) {
   commit({ type: 'triage', item });
 }
 
-export function askDevice(itemId, { full, design, cycles, source }) {
+export function askDevice(itemId, { full, design, cycles, source, unit = null, pf = null, passport = null }) {
   const item = state.hub.queue.find((x) => x.id === itemId);
   if (!item) return;
-  item.soh = { full, design, cycles: cycles ?? null, value: Math.round((full / design) * 100), source, ts: now() };
+  item.soh = { full, design, cycles: cycles ?? null, value: full && design ? Math.round((full / design) * 100) : null, source, unit, pf, passport, ts: now() };
   commit({ type: 'ask', item });
+}
+
+// Паспорт QAITA Доктора со ссылки: ноутбук на столе приёма сам рассказал о себе → новая карточка в очереди
+export function importPassport(ps) {
+  const b = ps.battery;
+  const item = {
+    id: uid(), deviceNo: nextDevice(), exampleId: null, model: passportTitle(ps), type: 'laptop',
+    state: 'включается · прочитан QAITA Доктором', suggestedTag: suggestFromPassport(ps), tag: null, status: 'new',
+    donationId: null, ts: now(), demo: false, fromDoctor: true, test30: null,
+    soh: b ? { full: b.full, design: b.design, cycles: b.cycles, value: b.soh, source: 'doctor', unit: b.unit, pf: b.pf, passport: ps, ts: now() }
+      : { full: null, design: null, cycles: null, value: null, source: 'doctor', unit: null, pf: null, passport: ps, ts: now() },
+  };
+  state.hub.queue.unshift(item);
+  state.hub.selected = item.id;
+  commit({ type: 'doctor', item });
+  return item;
 }
 
 export function runCells(itemId) {
   const item = state.hub.queue.find((x) => x.id === itemId);
   state.test30Runs += 1;
-  const res = runTest30(29 + state.test30Runs);
+  const res = runTest30({ seed: 29 + state.test30Runs, packSoh: item?.soh?.value ?? null, packLabel: item ? `${item.model} · ${item.deviceNo}` : null });
   if (item) item.test30 = { count: res.count, seed: res.seed, ts: now() };
   commit({ type: 'test30', item });
   return res;
@@ -416,6 +438,76 @@ export function osiPickup(tagId) {
   else addKg('hub', WEIGHT_KG.hubAvg, `${t.what}: «Бирка у бака», мелкое — маршрут в хаб`, at);
   commit({ type: 'osi-pickup', tag: t, bonus });
 }
+
+// ── Этап 3: сортировка ──────────────────────────────────────────────────────
+// План для вещи считает дерево разборки (src/lib/sort.js): детали этапа 2 уже сняты, цены — с табло хаба.
+// Целое — на вторую жизнь, его не сортируем. Остальное раскладывается по бинам стены, бин копит партию.
+const r3 = (v) => Math.round(v * 1000) / 1000;
+export const sortPrices = () => (state.sort?.flag ? { [SORT_FLAG.bin]: SORT_FLAG.price } : {});
+const partsOf = (deviceNo) => state.bank.filter((p) => p.fromDevice === deviceNo).map((p) => p.part);
+export function sortPlanOf(itemOrId) {
+  const it = typeof itemOrId === 'string' ? state.hub.queue.find((x) => x.id === itemOrId) : itemOrId;
+  if (!it) return null;
+  return planFor({ ...it, tag: it.tag || it.suggestedTag }, { bankParts: partsOf(it.deviceNo), prices: sortPrices() });
+}
+export const canSort = (it) => !!it && it.status === 'triaged' && !it.sorted && it.tag !== 'whole';
+export function sortItem(itemId, { silent = false } = {}) {
+  const it = state.hub.queue.find((x) => x.id === itemId);
+  if (!canSort(it)) return null;
+  const plan = sortPlanOf(it);
+  const bins = state.sort.bins;
+  for (const f of plan.frags) {
+    const b = bins[f.bin] || (bins[f.bin] = { kg: 0, value: 0, devices: [], liion: 0, rop: {} });
+    b.kg = r3(b.kg + f.kg);
+    b.value = Math.round((b.value + f.value) * 100) / 100;
+    if (!b.devices.includes(it.deviceNo)) b.devices.push(it.deviceNo);
+    if (f.bin === 'whole') {
+      if (f.battery) b.liion += 1;
+      const cat = SORT_ROP[it.type] || SORT_ROP.small;
+      b.rop[cat] = r3((b.rop[cat] || 0) + f.kg);
+    }
+  }
+  const lit = [...new Set(plan.frags.map((f) => f.bin))];
+  it.sorted = { ts: now(), value: plan.value, asIs: plan.asIs, minutes: plan.minutes, bins: lit, frags: plan.frags.map((f) => ({ bin: f.bin, kg: f.kg, value: f.value })) };
+  state.sort.last = { itemId: it.id, deviceNo: it.deviceNo, bins: lit, ts: now() };
+  if (it.donationId) {
+    const where = plan.frags.map((f) => `${f.name.split(':')[0].toLowerCase()} → «${binOf(f.bin).label}»`).join(', ');
+    note('Устройство рассортировано', `${it.model} (${it.deviceNo}): ${where}.${plan.frags.some((f) => f.bin === 'batt') ? ' Батарея — в шкаф с песком, в общий лом не попадёт.' : ''}`, 'info');
+  }
+  if (!silent) commit({ type: 'sort', item: it });
+  return plan;
+}
+export function sortAll() {
+  const ids = state.hub.queue.filter(canSort).map((x) => x.id);
+  ids.forEach((id) => sortItem(id, { silent: true }));
+  if (ids.length) {
+    const last = state.hub.queue.find((x) => x.id === ids[ids.length - 1]);
+    state.sort.last = { itemId: last.id, deviceNo: last.deviceNo, bins: [...new Set(ids.flatMap((id) => state.hub.queue.find((x) => x.id === id).sorted.bins))], ts: now(), many: ids.length };
+    commit({ type: 'sort-all', n: ids.length });
+  }
+  return ids.length;
+}
+export function setSortFlag(on) {
+  state.sort.flag = !!on;
+  commit({ type: 'sort-flag', on: state.sort.flag });
+}
+// Партия: всё, что накопилось в бине, уходит покупателю с паспортом партии (QR, вес, устройства, Li-ion, категории РОП)
+export function shipLot(binId) {
+  const b = state.sort.bins[binId];
+  if (!b || b.kg <= 0) return null;
+  const def = binOf(binId);
+  state.sort.seq += 1;
+  const lot = {
+    id: uid(), no: `P-${pad(state.sort.seq, 4)}`, bin: binId, label: def.label, buyer: def.buyer, ts: now(),
+    kg: b.kg, value: Math.round(b.value), devices: b.devices.slice(), liion: b.liion, rop: { ...b.rop },
+  };
+  state.sort.lots.unshift(lot);
+  delete state.sort.bins[binId];
+  commit({ type: 'lot', lot });
+  return lot;
+}
+export const lotTargetKg = (binId) => binOf(binId)?.lotKg ?? null;
+export const SORT_BIN_IDS = SORT_BINS.map((b) => b.id);
 
 export const SAMPLE_TAG = SAMPLE_TAG_NO;
 export const PARTS_DAYS = PARTS;

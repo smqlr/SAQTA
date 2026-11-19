@@ -1,0 +1,12 @@
+{
+  "name": "qaita-ai-server",
+  "private": true,
+  "type": "module",
+  "description": "QAITA: сервер для Claude (помощник Кайтик и распознавание фото)",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.10.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.165.0"
+  }
+}
