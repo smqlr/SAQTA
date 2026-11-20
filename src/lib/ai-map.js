@@ -1,49 +1,71 @@
-// Классы ImageNet (MobileNet) → виды техники SAQTA. Индексы — без «фона» (0…999).
-// type — вид техники для бонусов (DEVICE_TYPES), art — фото/рисунок, cat — подтема каталога.
+// Виды техники SAQTA, которые узнаёт ИИ в телефоне (голова MobileCLIP / MobileNet, src/ai/head-*.json),
+// плюс виды, которые называет сервер с Claude (server/recognize.js). type — вид техники для бонусов (DEVICE_TYPES),
+// art — фото/рисунок, cat — подтема каталога.
 export const GROUPS = {
-  phone: { label: 'Телефон', type: 'phone', art: 'phone', cat: 'digital', ids: [487, 707, 528] },
-  pda: { label: 'Карманный компьютер', type: 'phone', art: 'pda', cat: 'other', ids: [590] },
-  laptop: { label: 'Ноутбук', type: 'laptop', art: 'laptop', cat: 'digital', ids: [620, 681] },
-  pc: { label: 'Компьютер', type: 'laptop', art: 'pc', cat: 'digital', ids: [527] },
-  monitor: { label: 'Монитор', type: 'screen', art: 'monitor', cat: 'screens', ids: [664, 782, 916] },
-  tv: { label: 'Телевизор', type: 'screen', art: 'tv', cat: 'screens', ids: [851] },
-  fridge: { label: 'Холодильник', type: 'big', art: 'fridge', cat: 'home', ids: [760] },
-  washer: { label: 'Стиральная машина', type: 'big', art: 'washer', cat: 'home', ids: [897] },
-  dishwasher: { label: 'Посудомоечная машина', type: 'big', art: 'dishwasher', cat: 'home', ids: [534] },
-  stove: { label: 'Плита или духовка', type: 'big', art: 'stove', cat: 'home', ids: [827, 766] },
-  microwave: { label: 'Микроволновка', type: 'small', art: 'stove', cat: 'home', ids: [651] },
-  kettle: { label: 'Чайник или кофеварка', type: 'small', art: 'kettle', cat: 'home', ids: [849, 899, 725, 505, 550, 859, 891, 521] },
-  iron: { label: 'Утюг', type: 'small', art: 'iron', cat: 'home', ids: [606] },
-  vacuum: { label: 'Пылесос', type: 'small', art: 'vacuum', cat: 'home', ids: [882] },
-  dryer: { label: 'Фен', type: 'small', art: 'device', cat: 'home', ids: [589] },
-  heater: { label: 'Вентилятор или обогреватель', type: 'small', art: 'device', cat: 'home', ids: [545, 811] },
-  speaker: { label: 'Колонка или радио', type: 'small', art: 'speaker', cat: 'gadgets', ids: [632, 754, 482, 485, 848] },
-  player: { label: 'Плеер', type: 'small', art: 'headphones', cat: 'gadgets', ids: [605] },
-  watch: { label: 'Часы', type: 'small', art: 'watch', cat: 'gadgets', ids: [531, 826] },
-  camera: { label: 'Фотоаппарат', type: 'small', art: 'camera', cat: 'gadgets', ids: [759, 732] },
-  console: { label: 'Приставка или джойстик', type: 'small', art: 'console', cat: 'gadgets', ids: [613] },
-  remote: { label: 'Пульт', type: 'small', art: 'device', cat: 'gadgets', ids: [761] },
-  router: { label: 'Роутер или модем', type: 'small', art: 'router', cat: 'other', ids: [662] },
-  peripheral: { label: 'Клавиатура или мышь', type: 'small', art: 'device', cat: 'other', ids: [508, 673] },
-  printer: { label: 'Принтер', type: 'small', art: 'device', cat: 'other', ids: [742] },
-  projector: { label: 'Проектор', type: 'small', art: 'device', cat: 'other', ids: [745] },
-  disk: { label: 'Жёсткий диск', type: 'small', art: 'device', cat: 'other', ids: [592] },
-  tool: { label: 'Электроинструмент', type: 'small', art: 'device', cat: 'other', ids: [740, 786] },
-  lamp: { label: 'Светильник', type: 'small', art: 'device', cat: 'other', ids: [846, 619] },
+  phone: { label: 'Телефон', type: 'phone', art: 'phone', cat: 'digital' },
+  tablet: { label: 'Планшет', type: 'phone', art: 'phone', cat: 'digital' },
+  ebook: { label: 'Электронная книга', type: 'phone', art: 'ebook', cat: 'screens' },
+  pda: { label: 'Карманный компьютер', type: 'phone', art: 'pda', cat: 'other' },
+  laptop: { label: 'Ноутбук', type: 'laptop', art: 'laptop', cat: 'digital' },
+  pc: { label: 'Системный блок', type: 'laptop', art: 'pc', cat: 'digital' },
+  monitor: { label: 'Монитор', type: 'screen', art: 'monitor', cat: 'screens' },
+  tv: { label: 'Телевизор', type: 'screen', art: 'tv', cat: 'screens' },
+  fridge: { label: 'Холодильник', type: 'big', art: 'fridge', cat: 'home' },
+  washer: { label: 'Стиральная машина', type: 'big', art: 'washer', cat: 'home' },
+  dishwasher: { label: 'Посудомоечная машина', type: 'big', art: 'dishwasher', cat: 'home' },
+  stove: { label: 'Плита или духовка', type: 'big', art: 'stove', cat: 'home' },
+  ac: { label: 'Кондиционер', type: 'big', art: 'ac', cat: 'home' },
+  microwave: { label: 'Микроволновка', type: 'small', art: 'stove', cat: 'home' },
+  kettle: { label: 'Чайник', type: 'small', art: 'kettle', cat: 'home' },
+  coffee: { label: 'Кофеварка или кофемашина', type: 'small', art: 'kettle', cat: 'home' },
+  blender: { label: 'Блендер или миксер', type: 'small', art: 'kettle', cat: 'home' },
+  toaster: { label: 'Тостер или вафельница', type: 'small', art: 'kettle', cat: 'home' },
+  multicooker: { label: 'Мультиварка или скороварка', type: 'small', art: 'kettle', cat: 'home' },
+  iron: { label: 'Утюг', type: 'small', art: 'iron', cat: 'home' },
+  vacuum: { label: 'Пылесос', type: 'small', art: 'vacuum', cat: 'home' },
+  dryer: { label: 'Фен', type: 'small', art: 'device', cat: 'home' },
+  fan: { label: 'Вентилятор', type: 'small', art: 'device', cat: 'home' },
+  heater: { label: 'Обогреватель или увлажнитель', type: 'small', art: 'device', cat: 'home' },
+  sewing: { label: 'Швейная машинка', type: 'small', art: 'device', cat: 'home' },
+  headphones: { label: 'Наушники', type: 'small', art: 'headphones', cat: 'gadgets' },
+  speaker: { label: 'Колонка или радио', type: 'small', art: 'speaker', cat: 'gadgets' },
+  player: { label: 'Плеер или магнитофон', type: 'small', art: 'speaker', cat: 'gadgets' },
+  watch: { label: 'Часы или фитнес-браслет', type: 'small', art: 'watch', cat: 'gadgets' },
+  clock: { label: 'Будильник или настенные часы', type: 'small', art: 'watch', cat: 'gadgets' },
+  camera: { label: 'Фотоаппарат или камера', type: 'small', art: 'camera', cat: 'gadgets' },
+  console: { label: 'Приставка или джойстик', type: 'small', art: 'console', cat: 'gadgets' },
+  remote: { label: 'Пульт', type: 'small', art: 'device', cat: 'gadgets' },
+  calculator: { label: 'Калькулятор', type: 'small', art: 'device', cat: 'gadgets' },
+  microphone: { label: 'Микрофон', type: 'small', art: 'device', cat: 'gadgets' },
+  synth: { label: 'Синтезатор', type: 'small', art: 'device', cat: 'gadgets' },
+  landline: { label: 'Домашний телефон', type: 'small', art: 'nokia', cat: 'other' },
+  router: { label: 'Роутер или модем', type: 'small', art: 'router', cat: 'other' },
+  peripheral: { label: 'Клавиатура или мышь', type: 'small', art: 'device', cat: 'other' },
+  printer: { label: 'Принтер или МФУ', type: 'small', art: 'device', cat: 'other' },
+  projector: { label: 'Проектор', type: 'small', art: 'device', cat: 'other' },
+  disk: { label: 'Жёсткий диск или флешка', type: 'small', art: 'device', cat: 'other' },
+  tool: { label: 'Электроинструмент', type: 'small', art: 'device', cat: 'other' },
+  lamp: { label: 'Светильник', type: 'small', art: 'device', cat: 'other' },
+  flashlight: { label: 'Фонарик', type: 'small', art: 'device', cat: 'other' },
+  battery: { label: 'Батарейки или аккумулятор', type: 'small', art: 'battery', cat: 'other' },
+  charger: { label: 'Зарядка или кабель', type: 'cable', art: 'cables', cat: 'other' },
 };
 
-// probs — вероятности 1000 классов. Возвращает до n видов техники с суммарной вероятностью.
-export function topGroups(probs, n = 3) {
-  const out = [];
-  for (const [id, g] of Object.entries(GROUPS)) {
-    let p = 0;
-    for (const i of g.ids) p += probs[i];
-    out.push({ id, ...g, prob: p });
-  }
-  out.sort((a, b) => b.prob - a.prob);
-  // Насколько вообще похоже на технику: сумма по всем видам
-  const techness = out.reduce((s, g) => s + g.prob, 0);
-  return { guesses: out.slice(0, n).filter((g) => g.prob >= 0.02), techness };
+// Классы головы, которые в приложении — один вид (клавиатура и мышь — «Клавиатура или мышь»)
+const CLASS_GROUP = { keyboard: 'peripheral', mouse: 'peripheral' };
+
+// probs — вероятности классов головы (classes — их имена, «other» = не техника).
+// Возвращает до n видов техники по убыванию вероятности и «насколько это вообще техника» (1 − P(не техника)).
+export function headGroups(probs, classes, n = 3) {
+  const by = {};
+  let other = 0;
+  classes.forEach((c, i) => {
+    if (c === 'other') { other += probs[i]; return; }
+    const id = CLASS_GROUP[c] || c;
+    if (GROUPS[id]) by[id] = (by[id] || 0) + probs[i];
+  });
+  const out = Object.entries(by).map(([id, p]) => ({ id, ...GROUPS[id], prob: p })).sort((a, b) => b.prob - a.prob);
+  return { guesses: out.slice(0, n).filter((g, i) => i === 0 || g.prob >= 0.03), techness: 1 - other };
 }
 
 // Название или категория товара из базы (штрихкод) → вид техники SAQTA.
@@ -55,14 +77,17 @@ const WORDS = [
   ['fridge', /refrigerator|fridge|freezer|холодильн|морозильн/],
   ['stove', /\b(oven|stove|cooker|hob|range)\b|плит[аы]|духов/],
   ['dryer', /hair ?dryer|(^|[^а-яё])фен([^а-яё]|$)/],
-  ['player', /headphone|earbud|earphone|headset|наушник|гарнитур|\bmp3\b|плеер/],
+  ['headphones', /headphone|earbud|earphone|headset|наушник|гарнитур/],
+  ['player', /\bmp3\b|\bipod\b|media player|плеер|магнитофон/],
   ['watch', /smart ?watch|\bwatch\b|fitness (band|tracker)|часы|фитнес-?браслет/],
   ['console', /playstation|xbox|nintendo|game console|gamepad|joystick|приставк|джойстик|геймпад/],
   ['tv', /\btv\b|television|телевизор|smart tv/],
   ['monitor', /monitor|монитор|\bdisplay\b/],
   ['laptop', /laptop|notebook|macbook|chromebook|ultrabook|ноутбук/],
   ['pc', /desktop|all-in-one|\bpc\b|системный блок|моноблок|компьютер/],
-  ['phone', /smartphone|mobile phone|cell ?phone|\biphone\b|\bipad\b|tablet|смартфон|телефон|планшет|galaxy|redmi|xiaomi|honor|huawei|pixel/],
+  ['ebook', /e-?book|e-?reader|kindle|pocketbook|электронн(ая|ую) книг/],
+  ['tablet', /\bipad\b|tablet|планшет/],
+  ['phone', /smartphone|mobile phone|cell ?phone|\biphone\b|смартфон|телефон|galaxy|redmi|xiaomi|honor|huawei|pixel/],
   ['camera', /camera|camcorder|фотоаппарат|видеокамер|экшн-камер/],
   ['speaker', /speaker|soundbar|radio|колонк|саундбар|радио/],
   ['router', /router|modem|wi-?fi|access point|роутер|маршрутизатор|модем/],
@@ -71,9 +96,18 @@ const WORDS = [
   ['projector', /projector|проектор/],
   ['disk', /hard drive|\bssd\b|\bhdd\b|flash drive|usb drive|memory card|жёстк|жестк|флешк|накопител/],
   ['vacuum', /vacuum|пылесос/],
-  ['kettle', /kettle|coffee|espresso|toaster|blender|mixer|juicer|multicooker|чайник|кофе|тостер|блендер|миксер|мультивар/],
+  ['coffee', /coffee|espresso|кофе/],
+  ['toaster', /toaster|waffle|тостер|вафельниц/],
+  ['blender', /blender|mixer|juicer|food processor|блендер|миксер|соковыжим/],
+  ['multicooker', /multicooker|slow cooker|pressure cooker|мультивар|скоровар/],
+  ['kettle', /kettle|чайник/],
   ['iron', /\biron\b|steamer|утюг|отпаривател/],
-  ['heater', /\bfan\b|heater|air purifier|humidifier|вентилятор|обогреват|увлажнител/],
+  ['fan', /\bfan\b|вентилятор/],
+  ['heater', /heater|air purifier|humidifier|обогреват|увлажнител/],
+  ['ac', /air condition|кондиционер/],
+  ['charger', /charger|adapter|cable|зарядн|зарядк|адаптер|кабель/],
+  ['battery', /battery|batteries|батаре|аккумулятор/],
+  ['calculator', /calculator|калькулятор/],
   ['tool', /drill|screwdriver|grinder|\bsaw\b|power tool|дрель|шуруповёрт|шуруповерт|болгарк|перфоратор/],
   ['lamp', /\blamp\b|light bulb|lighting|светильник|ламп/],
 ];

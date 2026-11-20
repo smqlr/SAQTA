@@ -3,6 +3,7 @@
 import { build } from 'esbuild';
 import { readFile, writeFile, mkdir, cp } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -48,6 +49,11 @@ const aiJs = ai.outputFiles[0].text;
 const aiWeights = await readFile(join(root, 'src/ai/mobilenet.bin'));
 // Штрихкоды: wasm ZXing (только чтение), рядом с движком ИИ
 const zxingWasm = await readFile(join(root, 'node_modules/zxing-wasm/dist/reader/zxing_reader.wasm'));
+// MobileCLIP: граф ONNX без весов, веса float16 и WebAssembly-движок ONNX Runtime (в офлайн-файле — сжатый gzip)
+const clipGraph = await readFile(join(root, 'src/ai/mclip.onnx'));
+const clipWeights = await readFile(join(root, 'src/ai/mclip.f16'));
+const ortWasm = await readFile(join(root, 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm'));
+const ortWasmGz = gzipSync(ortWasm, { level: 9 });
 
 // Вставляем через функции-замены, чтобы символы `$` в коде не трактовались как шаблоны замены
 const jsCode = js.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
@@ -56,7 +62,8 @@ const html = tpl
   .replace('/*__CSS__*/', () => css)
   .replace('/*__JS__*/', () => jsCode);
 // Офлайн-файл: движок и веса ИИ внутри (text/plain — браузер их не исполняет, пока житель не сфотографирует вещь)
-const inlineAi = `<script type="text/plain" id="saqta-ai-js">${aiJs.replace(/<\/script/gi, '<\\/script')}</script>\n<script type="text/plain" id="saqta-ai-w">${aiWeights.toString('base64')}</script>\n<script type="text/plain" id="saqta-bc-w">${zxingWasm.toString('base64')}</script>\n`;
+const inlineAi = `<script type="text/plain" id="saqta-ai-js">${aiJs.replace(/<\/script/gi, '<\\/script')}</script>\n<script type="text/plain" id="saqta-ai-w">${aiWeights.toString('base64')}</script>\n<script type="text/plain" id="saqta-bc-w">${zxingWasm.toString('base64')}</script>\n`
+  + `<script type="text/plain" id="saqta-ai-ort">${ortWasmGz.toString('base64')}</script>\n<script type="text/plain" id="saqta-ai-cg">${clipGraph.toString('base64')}</script>\n<script type="text/plain" id="saqta-ai-cw">${clipWeights.toString('base64')}</script>\n`;
 const offline = html.replace('</body>', () => `${inlineAi}</body>`);
 
 const outFile = join(root, 'dist', `${APP_FILE}.html`);
@@ -67,6 +74,9 @@ await writeFile(join(root, 'docs', 'index.html'), html);
 await writeFile(join(root, 'docs', 'ai', 'engine.js'), aiJs);
 await writeFile(join(root, 'docs', 'ai', 'mobilenet.bin'), aiWeights);
 await writeFile(join(root, 'docs', 'ai', 'zxing_reader.wasm'), zxingWasm);
+await writeFile(join(root, 'docs', 'ai', 'mclip.onnx'), clipGraph);
+await writeFile(join(root, 'docs', 'ai', 'mclip.f16'), clipWeights);
+await writeFile(join(root, 'docs', 'ai', 'ort.wasm'), ortWasm);
 
 // PWA только для версии на GitHub Pages (на file:// main.js их не подключает)
 const version = createHash('sha1').update(html).digest('hex').slice(0, 10);
@@ -108,4 +118,4 @@ await writeFile(join(root, 'docs', 'sw.js'), sw);
 // Иконки и скриншоты (их рисует tools/pwa-assets.mjs) — рядом с index.html
 await cp(join(root, 'src/pwa'), join(root, 'docs'), { recursive: true, filter: (f) => !f.endsWith('sw.js') });
 await writeFile(join(root, 'docs', '.nojekyll'), '');
-console.log(`OK: dist/${APP_FILE}.html — ${(offline.length / 1048576).toFixed(1)} МБ (с ИИ внутри), docs/index.html — ${(html.length / 1024).toFixed(0)} КБ, docs/ai — ${((aiJs.length + aiWeights.length) / 1048576).toFixed(1)} МБ`);
+console.log(`OK: dist/${APP_FILE}.html — ${(offline.length / 1048576).toFixed(1)} МБ (с ИИ внутри), docs/index.html — ${(html.length / 1024).toFixed(0)} КБ, docs/ai — ${((aiJs.length + aiWeights.length + clipGraph.length + clipWeights.length + ortWasm.length) / 1048576).toFixed(1)} МБ`);

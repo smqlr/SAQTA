@@ -12,7 +12,9 @@
     "test:pwa": "node tests/pwa.mjs",
     "test:server": "node tests/server.mjs",
     "site": "node site/build.mjs",
-    "test:site": "node tests/site.mjs"
+    "test:site": "node tests/site.mjs",
+    "test:bot": "node tests/bot.mjs",
+    "test:ai": "node tests/ai.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {
@@ -24,6 +26,7 @@
     "esbuild": "^0.24.0",
     "fflate": "^0.8.2",
     "leaflet": "^1.9.4",
+    "onnxruntime-web": "^1.31.1",
     "playwright": "^1.56.1",
     "qrcode-generator": "^1.4.4",
     "zxing-wasm": "^3.1.7"
