@@ -10,7 +10,9 @@
     "sort-stage": "node tests/sort-stage.mjs",
     "extend-stage": "node tests/extend-stage.mjs",
     "test:pwa": "node tests/pwa.mjs",
-    "test:server": "node tests/server.mjs"
+    "test:server": "node tests/server.mjs",
+    "site": "node site/build.mjs",
+    "test:site": "node tests/site.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {
