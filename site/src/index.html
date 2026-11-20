@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAQTA — Собери. Спроси. Спаси.</title>
+<meta name="description" content="SAQTA — городская система для Актобе: забирает старую технику там, где она лежит, за секунды узнаёт, что в ней живо, и даёт ей вторую жизнь. Hack.IT 2026, трек STEM, кейс «Электронные отходы».">
+<meta name="theme-color" content="#f3f0e9">
+<meta property="og:title" content="SAQTA — Собери. Спроси. Спаси.">
+<meta property="og:description" content="Сбор, проверка, сортировка и продление жизни техники в Актобе. Каждое действие — решение в тенге.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 2h20a1 1 0 0 1 1 1v26a1 1 0 0 1-1 1H9L2 23V9z' fill='%2312673a'/%3E%3Ccircle cx='8.5' cy='16' r='2.4' fill='%23f3f0e9'/%3E%3Cpath d='M15 11h10M15 16h10M15 21h6' stroke='%23f3f0e9' stroke-width='2.4'/%3E%3C/svg%3E">
+<style>/*CSS*/</style>
+</head>
+<body>
+
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="logo" href="#hero" aria-label="SAQTA — в начало">
+      <svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M9 2h20a1 1 0 0 1 1 1v26a1 1 0 0 1-1 1H9L2 23V9z" fill="#12673a"/><circle cx="8.5" cy="16" r="2.4" fill="#f3f0e9"/><path d="M15 11h10M15 16h10M15 21h6" stroke="#f3f0e9" stroke-width="2.4"/></svg>
+      <span class="logo-word">SAQTA</span>
+      <span class="logo-sub">Hack.IT 2026<br>STEM · Актобе</span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Разделы">
+      <a href="#problem">Проблема</a>
+      <a href="#solution">Решение</a>
+      <a href="#stages">Этапы</a>
+      <a href="#economy">Экономика</a>
+      <a href="#budget">Бюджет</a>
+      <a href="#demo">Прототип</a>
+      <a href="#team">Команда</a>
+      <a class="app-link" href="https://smqlr.github.io/SAQTA/" target="_blank" rel="noopener">Открыть приложение ↗</a>
+    </nav>
+    <a class="btn sm solid" href="https://smqlr.github.io/SAQTA/" target="_blank" rel="noopener">Приложение <span class="arrow">↗</span></a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav">Меню</button>
+  </div>
+</header>
+
+<main>
+
+<section class="hero" id="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow"><span>Hack.IT 2026</span><span>Трек STEM</span><span>Кейс «Электронные отходы»</span><span>Актобе</span></p>
+        <h1>Собери.<br>Спроси.<br><em>Спаси.</em></h1>
+        <p class="kz">Жина. Сұра. Сақта. — «сақта» по-казахски значит «сохрани»</p>
+        <p class="lede">SAQTA — городская система для Актобе. Она забирает старую технику там, где та уже лежит, за секунды узнаёт, что в ней живо, и даёт ей вторую жизнь: целиком, на детали или в переработку.</p>
+        <div class="actions">
+          <a class="btn solid" href="https://smqlr.github.io/SAQTA/" target="_blank" rel="noopener">Открыть приложение <span class="arrow">↗</span></a>
+          <a class="btn" href="#solution">Как это работает <span class="arrow">↓</span></a>
+        </div>
+      </div>
+      <div style="display:grid">
+        <div class="label" role="img" aria-label="Образец QR-паспорта детали: экран OLED Samsung Galaxy A50, гарантия 30 дней, цена 4 000 тенге">
+          <div class="label-head"><b>SAQTA</b><span>деталь № AQ-004512</span></div>
+          <div class="label-row">
+            <div>
+              <div class="label-title">Экран OLED<br>Samsung Galaxy A50</div>
+              <div>из устройства № D-000781<br>данные стёрты</div>
+            </div>
+            <div class="qr">{{QR}}</div>
+          </div>
+          <dl>
+            <dt>Проверка</dt><dd>битых пикселей 0, сенсор работает</dd>
+            <dt>Путь</dt><dd>школа → хаб → Банк деталей</dd>
+            <dt>Гарантия</dt><dd>30 дней</dd>
+          </dl>
+          <div class="label-foot"><span>под заказ мастерской</span><b>4 000 ₸</b></div>
+        </div>
+        <p class="label-note">образец QR-паспорта из нашей документации<br>QR настоящий: наведите камеру — откроется приложение</p>
+      </div>
+    </div>
+
+    <div class="hook">
+      <div>
+        <span class="big">15 мин · 900 ₸</span>
+        <p>Столько по кейсу стоит ручная проверка одной ячейки аккумулятора.</p>
+      </div>
+      <div>
+        <span class="big green">0,015 с</span>
+        <p>За столько чип батареи ноутбука команды сам отдал ёмкость, циклы и напряжения. Разбирать ничего не пришлось.</p>
+      </div>
+      <div>
+        <span class="big">206 ₸</span>
+        <p>Обработка одного устройства в хабе SAQTA. По кейсу — 3 000 ₸.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="problem">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>01</b>Кейс</p>
+      <div>
+        <h2>Проверять старую технику сейчас убыточно, а сдавать — некуда</h2>
+        <p>Горадминистрация дала город на 500 000 жителей, 10 млн ₸ и полгода на пилот. Вот исходные цифры кейса.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="ledger">
+        <div><span class="n">4 000&nbsp;<small>т</small></span><p>электронных отходов в год</p></div>
+        <div><span class="n">20%</span><p>перерабатывается. Остальное лежит дома или уходит на полигон</p></div>
+        <div><span class="n">0</span><p>пунктов приёма в городе</p></div>
+        <div><span class="n">70%</span><p>жителей не знают, куда сдавать технику. 45% хранят её дома</p></div>
+        <div><span class="n">3 000&nbsp;<small>₸</small></span><p>полная проверка одного устройства. Годные детали в нём — около 2 000 ₸, и есть они только в 60% устройств</p></div>
+        <div><span class="n">25–30&nbsp;<small>мин</small></span><p>разборка одного ноутбука. Ручная проверка одной ячейки — 15 минут</p></div>
+      </div>
+
+      <div class="paradox">
+        <div>
+          <div class="formula">0,6 × 2 000 ₸ − 3 000 ₸<br>= <span class="neg">−1 800 ₸</span><small>средний результат проверки одного устройства по цифрам кейса</small></div>
+          <p style="margin-top:22px">Проверка дороже того, что она находит. Поэтому мы не ускоряем ручную проверку, а меняем вопрос: проверять только то, что окупится, и спрашивать устройство, а не разбирать его.</p>
+        </div>
+        <div>
+          <h4>Где на самом деле лежат тонны</h4>
+          <div class="massbar" role="img" aria-label="Телефоны и ноутбуки — около 8% массы, крупная и мелкая бытовая техника и экраны — около 88%, остальное — около 4%">
+            <div class="it">8%</div><div class="big">88%<span class="long">&nbsp;— холодильники, стиралки, ТВ, мелкая бытовая</span></div><div class="rest"></div>
+          </div>
+          <div class="masslegend">
+            <span><i style="background:var(--green)"></i>телефоны и ноутбуки</span>
+            <span><i style="background:#ece7dc"></i>крупная, мелкая бытовая и экраны</span>
+            <span><i style="background:var(--paper-2)"></i>остальное</span>
+          </div>
+          <p style="margin-top:18px">Телефоны и ноутбуки — около 8% массы электронных отходов, крупная и мелкая бытовая техника с экранами — около 88% (Global E-waste Monitor 2024). Значит, одного способа мало: нужны два двигателя — один за тоннами, другой за ценностью.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec tint" id="solution">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>02</b>Решение</p>
+      <div>
+        <h2>Два двигателя и один QR-паспорт на всю жизнь вещи</h2>
+        <p>Вместо «как заманить людей в пункт приёма» SAQTA спрашивает «как забрать технику там, где она уже лежит». Вместо «как проверить каждое устройство» — «как проверять только то, что точно купят».</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="engines">
+        <div>
+          <span class="tag g">Двигатель 1</span>
+          <h3>«Тонны»</h3>
+          <p>Крупную технику забираем там, где она уже есть.</p>
+          <ol class="steps">
+            <li><b>Обратный рейс.</b> Магазин, который привозит новый холодильник или стиральную машину, забирает старую. Галочка «вывезти старую технику» стоит в заказе по умолчанию, экипаж получает 300 ₸ за единицу.</li>
+            <li><b>Бирка у бака.</b> Председатель ОСИ или дворник клеит QR-бирку на технику у контейнера и отмечает её в приложении. Партнёр забирает, дом получает бонусы.</li>
+            <li><b>Амнистия складов.</b> Школы, поликлиники и отделы акимата сдают списанную технику.</li>
+            <li><b>Заявка жителя.</b> Бесплатный вывоз крупной техники лицензированной скупкой — с откачкой фреона и актом с весом.</li>
+            <li><b>Тазару күні.</b> Неделя сдачи с двойными бонусами в Наурыз, внутри кампании «Таза Қазақстан».</li>
+          </ol>
+        </div>
+        <div>
+          <span class="tag g">Двигатель 2</span>
+          <h3>«Ценность»</h3>
+          <p>Телефоны и ноутбуки — на детали, но только под заказ.</p>
+          <ol class="steps">
+            <li><b>Сбор.</b> 40 школ в Донор-лиге: классы соревнуются, дети приносят технику из дома. Ещё 5 боксов в ЦОН и вузах.</li>
+            <li><b>Спроси устройство.</b> Чип батареи и журнал SMART диска отвечают за секунды — разбирать ничего не нужно.</li>
+            <li><b>ТЕСТ-30.</b> Отдельные ячейки 18650 проверяет наш стенд: 16 штук за 30 секунд.</li>
+            <li><b>Триаж.</b> Каждая вещь получает бирку: «Целое», «Донор», «Опасно» или «Сырьё».</li>
+            <li><b>Разборка под заказ.</b> Деталь снимаем, когда мастерская уже оставила заявку. QR-паспорт и гарантия 30 дней; не продалось за 90 дней — в переработку.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="rules">
+        <h3 style="margin:22px 0 10px">Одна логика на весь хаб: каждое действие — решение в тенге</h3>
+        <ul class="plain">
+          <li><b>Снять деталь</b><span>если её ожидаемая ценность EV = P(работает) × цена × P(купят) − минуты × 60 ₸ больше нуля</span></li>
+          <li><b>Проверить</b><span>если ценность проверки больше её цены</span></li>
+          <li><b>Вскрыть корпус</b><span>если части стоят больше, чем вещь целиком плюс минуты работы</span></li>
+          <li><b>Продлить жизнь</b><span>если год жизни после ремонта дешевле года жизни новой вещи</span></li>
+          <li><b>Безопасность и данные</b><span>вне экономики, всегда: вздутая батарея — в шкаф с песком, носитель — стереть по NIST SP 800-88 или уничтожить</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="stages">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>03</b>Как это работает</p>
+      <div>
+        <h2>Четыре этапа. Каждый дописывает паспорт вещи, следующий решает по нему</h2>
+      </div>
+    </div>
+    <div class="flow">
+      <a href="#collect">
+        <span class="no">Этап 1</span>
+        <h3>Сбор</h3><span class="kzw">Жина</span>
+        <p>Приложение жителя: фото — вид техники прямо в телефоне, куда сдать, QR-квитанция, бонусы.</p>
+        <span class="metric">229,6 т за 6 месяцев</span>
+      </a>
+      <a href="#check">
+        <span class="no">Этап 2</span>
+        <h3>Проверка</h3><span class="kzw">Сұра</span>
+        <p>Устройство само рассказывает о себе. Человек проверяет только то, что окупится.</p>
+        <span class="metric">206 ₸ вместо 3 000 ₸</span>
+      </a>
+      <a href="#sort">
+        <span class="no">Этап 3</span>
+        <h3>Сортировка</h3><span class="kzw">Сақта</span>
+        <p>Дерево разборки решает в тенге, насколько разбирать вещь и в какой ящик класть каждую часть.</p>
+        <span class="metric">+596,5 ₸ вместо −775,2 ₸</span>
+      </a>
+      <a href="#extend">
+        <span class="no">Этап 4</span>
+        <h3>Продли</h3><span class="kzw">Ұзарт</span>
+        <p>Вещь говорит, сколько ей осталось жить. Бочка Либиха находит деталь, которая убьёт её первой.</p>
+        <span class="metric">6,3 т отходов не родятся</span>
+      </a>
+    </div>
+    <p class="passport-line">Вещь получает номер на QR-квитанции у жителя. Сбор передаёт проверке вид техники и состояние, проверка сортировке — паспорт батареи и диска и снятые детали, Банк деталей продлению — проверенную деталь с гарантией. Возвраты по гарантии и акты взвешивания сами уточняют пороги проверки и массы в дереве разборки.</p>
+  </div>
+</section>
+
+<section class="sec" id="collect">
+  <div class="wrap">
+    <div class="stage-head">
+      <div class="stage-no">1<small>Жина · собери</small></div>
+      <div>
+        <h2>Сбор: забираем там, где техника уже лежит</h2>
+        <blockquote>Главные каналы не требуют идти в пункт приёма: доставка, бак у дома, школа. Житель видит, что спасла его вещь, и приносит следующую.</blockquote>
+      </div>
+    </div>
+    <div class="sec-body two">
+      <div>
+        <h3>Сколько тонн уберёт пилот</h3>
+        <div class="bars">
+          <div class="bar-row"><span class="name">«Обратный рейс»<small>2 500 единиц крупной техники</small></span><span class="val">98,0 т</span><span class="track"><span class="fill g" style="width:100%"></span></span></div>
+          <div class="bar-row"><span class="name">Заявки жителей на вывоз<small>1 200 единиц, в среднем 45 кг</small></span><span class="val">54,0 т</span><span class="track"><span class="fill g" style="width:55.1%"></span></span></div>
+          <div class="bar-row"><span class="name">«Бирка у бака»<small>200 домов ОСИ, 860 крупных вещей</small></span><span class="val">30,1 т</span><span class="track"><span class="fill g" style="width:30.7%"></span></span></div>
+          <div class="bar-row"><span class="name">«Амнистия складов»<small>около 150 организаций по 200 кг</small></span><span class="val">30,0 т</span><span class="track"><span class="fill g" style="width:30.6%"></span></span></div>
+          <div class="bar-row"><span class="name">Хаб: малая техника<small>20 000 устройств по 0,88 кг</small></span><span class="val">17,6 т</span><span class="track"><span class="fill" style="width:18%"></span></span></div>
+          <div class="bar-row sum"><span class="name">Итого за 6 месяцев</span><span class="val">229,6 т</span></div>
+        </div>
+        <p class="note" style="margin-top:14px">После разгона — около 669 т в год: доля переработки растёт с 20% до ≈ 37%. Пилот стоит ≈ 43,5 ₸ за килограмм техники, выведенный из мусора.</p>
+      </div>
+      <div>
+        <h3>Точки сбора</h3>
+        <ol class="steps">
+          <li><b>40 школ</b> в Донор-лиге — точки выбраны по карте школ Актобе из OpenStreetMap</li>
+          <li><b>5 боксов:</b> ЦОН № 1 на Тургенева, 109, ЦОН на Санкибай батыра, 249, АРУ, ЗКМУ и КРМУ</li>
+          <li><b>200 домов ОСИ</b> с «Биркой у бака»</li>
+          <li><b>Магазины-партнёры</b> с «Обратным рейсом»</li>
+        </ol>
+        <h3 style="margin-top:36px">Бонусный кошелёк</h3>
+        <ol class="steps">
+          <li>200 бонусов за ноутбук, 50 за телефон, 300 за вывоз холодильника</li>
+          <li>Ещё 10% цены, когда продаётся деталь твоего устройства: «Твой ноутбук спас 3 устройства»</li>
+          <li>1 бонус = 1 ₸: вывод на карту любого банка от 1 000 бонусов</li>
+          <li>Фонд — 500 000 ₸ на старт и 25% выручки хаба. Бонусы — только после проверки в хабе, не больше 10 устройств в месяц на человека</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec tint" id="check">
+  <div class="wrap">
+    <div class="stage-head">
+      <div class="stage-no">2<small>Сұра · спроси</small></div>
+      <div>
+        <h2>Проверка: сначала спрашиваем само устройство</h2>
+        <blockquote>Каждая проверка — это вопрос. Сначала задаём его самому устройству, а человеку — только если ответ окупится.</blockquote>
+      </div>
+    </div>
+    <div class="sec-body stack">
+      <div class="two wide-left">
+        <div>
+          <h3>Ноутбук годами ведёт медкарту своей батареи</h3>
+          <p>Газомер батареи считает каждый кулон (Q = ∫ I dt) и знает реальную ёмкость, число циклов и напряжение каждой группы ячеек. SSD ведёт журнал здоровья SMART. Телефон показывает экран, касание, камеры и зарядку прямо с экрана блокировки — без пароля и без доступа к данным.</p>
+          <p>SAQTA Доктор — одна команда для macOS, Linux и Windows. Он читает чип и диск, собирает паспорт ноутбука и передаёт его в хаб ссылкой.</p>
+        </div>
+        <div class="formula" style="font-size:15px;font-weight:400;letter-spacing:0">
+          <b style="font-size:13px;letter-spacing:.06em">SAQTA ДОКТОР · ПАСПОРТ БАТАРЕИ</b>
+          <div style="border-top:1.5px solid var(--ink);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:auto 1fr;gap:4px 18px">
+            <span class="muted">устройство</span><span>MacBook Pro команды</span>
+            <span class="muted">чип</span><span>bq40z651</span>
+            <span class="muted">чтение</span><b class="pos" style="color:var(--green)">0,015 с</b>
+            <span class="muted">здоровье</span><span>88,4%</span>
+            <span class="muted">циклы</span><span>239 из 1 000</span>
+          </div>
+          <small style="margin-top:0">руками те же 3 ячейки — 45 мин и 2 700 ₸</small>
+        </div>
+      </div>
+
+      <div class="widget" id="voi">
+        <div class="widget-head"><h3>Ценность проверки: проверять ли деталь до снятия</h3><span class="mono">ЦП = min((1 − P) × K; P × (V − K))</span></div>
+        <div class="widget-body">
+          <div>
+            <div class="chips" data-voi-presets></div>
+            <div class="field"><label for="voiP">P — вероятность, что деталь работает <output id="voiPo"></output></label><input id="voiP" type="range" min="0.05" max="1" step="0.05"></div>
+            <div class="field"><label for="voiPrice">Цена детали <output id="voiPriceo"></output></label><input id="voiPrice" type="range" min="100" max="10000" step="100"></div>
+            <div class="field"><label for="voiMin">Минуты на снятие <output id="voiMino"></output></label><input id="voiMin" type="range" min="0.25" max="15" step="0.25"></div>
+            <label class="check"><input id="voiOrder" type="checkbox"> Есть заявка мастерской — P(купят) 0,9, без неё 0,2</label>
+          </div>
+          <div aria-live="polite">
+            <div class="out-grid">
+              <div><span class="out-cap">EV детали</span><div class="out-big" id="voiEv"></div></div>
+              <div><span class="out-cap">ЦП — ценность проверки</span><div class="out-big" id="voiCp"></div></div>
+            </div>
+            <div class="calc-line" id="voiCalc"></div>
+            <div class="verdict" id="voiVerdict"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two">
+        <div>
+          <h3>ТЕСТ-30: стенд для отдельных ячеек</h3>
+          <p>Стенд на ESP32-S3 и 16 датчиках тока INA219 даёт ячейкам 18650 короткий импульс нагрузки и смотрит, насколько просело напряжение: R₀ = ΔU / I. Чем сильнее просадка, тем старее ячейка.</p>
+          <p>Импульс честно меряет сопротивление, напряжение и нагрев — не ёмкость. Ёмкость ячейка наследует от чипа своего пакета, а спорные ячейки идут на полный цикл в анализатор Lii-500. Без измеренной ёмкости грейда A или B нет.</p>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Грейд</th><th>Условие</th><th>Куда идёт</th></tr></thead>
+            <tbody>
+              <tr><td><b>A</b></td><td>здоровье от 80%, сопротивление до 80 мОм</td><td>пауэрбанки, фонари, продажа</td></tr>
+              <tr><td><b>B</b></td><td>здоровье 65–80%, до 150 мОм</td><td>наборы для кружков робототехники</td></tr>
+              <tr><td><b>C</b></td><td>хуже, напряжение ниже 2,5 В или нагрев больше 2 °C</td><td>переработка</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div>
+          <h3>Цифры этапа</h3>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th></th><th>По кейсу</th><th>SAQTA</th></tr></thead>
+            <tbody>
+              <tr><td>Ячейка</td><td>15 мин и 900 ₸</td><td><b class="pos" style="color:var(--green)">37,6 ₸</b>; с перепроверкой через 7 дней — 42 ₸, в 21,4 раза дешевле</td></tr>
+              <tr><td>5 610 ячеек пилота</td><td>1 402,5 ч и 5 049 000 ₸</td><td>22,4 ч рук и ≈ 236 000 ₸</td></tr>
+              <tr><td>3 ячейки ноутбука</td><td>45 мин и 2 700 ₸</td><td>чип: 0,015 с машины и 30 с человека</td></tr>
+              <tr><td>Пакет батареи</td><td>вскрывать каждый</td><td>плохой не вскрываем: +72 ₸ → +222 ₸ на пакет</td></tr>
+              <tr><td>Устройство в хабе</td><td>3 000 ₸</td><td><b class="pos" style="color:var(--green)">206 ₸</b></td></tr>
+            </tbody>
+          </table></div>
+          <p class="note" style="margin-top:12px">Гарантия 30 дней работает как датчик: каждый возврат — ошибка нашей проверки. P(работает | прошла проверку) пересчитывается по Байесу, а порог, который ошибается чаще 3%, ужесточается.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="sort">
+  <div class="wrap">
+    <div class="stage-head">
+      <div class="stage-no">3<small>Сақта · сохрани</small></div>
+      <div>
+        <h2>Сортировка: разбираем ровно до шага, который окупается</h2>
+        <blockquote>Сортирует расчёт, а не опыт. Каждую часть отдаём тому, кто заплатит больше, а свет над ящиком показывает технику, куда её положить.</blockquote>
+      </div>
+    </div>
+    <div class="sec-body stack">
+      <div class="formula">V(узел) = max( m × цена ящика ; Σ V(частей) − t × 60 ₸ )<small>m — масса узла, t — минуты на вскрытие, 60 ₸ в минуту — ставка из кейса (900 ₸ за 15 минут). Считаем снизу вверх — это динамическое программирование. На 1 440 наборах цен ответ совпадает с перебором всех вариантов разборки.</small></div>
+
+      <div class="widget" id="tree">
+        <div class="widget-head"><h3>Дерево разборки: ноутбук Lenovo IdeaPad, 2,2 кг</h3><span class="mono">тот же код, что в приложении</span></div>
+        <div class="tree-sum">
+          <div><span class="t">продать целиком</span><span class="v" id="treeWhole"></span></div>
+          <div><span class="t">разобрать всё, как в кейсе</span><span class="v" id="treeFull"></span></div>
+          <div class="best"><span class="t">по дереву</span><span class="v" id="treeBest"></span></div>
+        </div>
+        <div class="widget-body">
+          <div>
+            <div class="field"><label for="treePrice">Цена плат ноутбуков у скупщика <output id="treePriceo"></output></label><input id="treePrice" type="range" min="1000" max="8000" step="100" value="3000"></div>
+            <div class="chips">
+              <button type="button" class="chip" data-price="3000">3 000 ₸/кг<small>медиана прайсов</small></button>
+              <button type="button" class="chip" data-price="5500">5 500 ₸/кг<small>чип с «жёлтым флажком»</small></button>
+            </div>
+            <label class="check"><input id="treeStage2" type="checkbox"> После этапа 2: память, SSD и ячейки уже сняты под заказ</label>
+            <h4 style="margin-top:24px">Сортировочная стена: 12 ящиков</h4>
+            <p class="note">Техник сканирует QR — над нужными ящиками загорается свет. Батарея попадает только в шкаф с песком.</p>
+            <div class="wall" id="wall"></div>
+          </div>
+          <div aria-live="polite">
+            <ul class="steps-list" id="treeSteps"></ul>
+            <p class="note" style="margin-top:14px" id="treeNote"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="two">
+        <div>
+          <h3>Цены ящиков, ₸ за кг</h3>
+          <p class="note">Медианы 13 прайсов скупщиков на OLX.kz за 4–19.11.2026. Шкала логарифмическая: разница между сортами — сотни раз, поэтому «лом микс» продавать нельзя.</p>
+          <div class="bars" id="binPrices"></div>
+        </div>
+        <div>
+          <h3>Что дерево решило для каждой вещи</h3>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Вещь</th><th class="num">Целиком</th><th class="num">Разобрать всё</th><th class="num">По дереву</th></tr></thead>
+            <tbody>
+              <tr><td>Ноутбук</td><td class="num">550 ₸</td><td class="num"><span class="neg">−775,2 ₸</span></td><td class="num"><span class="pos">596,5 ₸</span></td></tr>
+              <tr><td>Смартфон</td><td class="num">108 ₸</td><td class="num">60 ₸</td><td class="num"><span class="pos">108 ₸</span></td></tr>
+              <tr><td>Кнопочный телефон</td><td class="num">45 ₸</td><td class="num">66 ₸</td><td class="num"><span class="pos">66 ₸</span></td></tr>
+              <tr><td>Чайник, утюг, пылесос</td><td class="num">90 ₸</td><td class="num"><span class="neg">−171,5 ₸</span></td><td class="num"><span class="pos">152,4 ₸</span></td></tr>
+              <tr><td>Монитор, телевизор</td><td class="num">200 ₸</td><td class="num"><span class="neg">−205 ₸</span></td><td class="num"><span class="pos">277 ₸</span></td></tr>
+              <tr><td>Зарядка</td><td class="num">50 ₸</td><td class="num">75 ₸</td><td class="num"><span class="pos">75 ₸</span></td></tr>
+              <tr><td>Наушники, колонка, часы</td><td class="num">18 ₸</td><td class="num"><span class="neg">−133,8 ₸</span></td><td class="num"><span class="pos">18 ₸</span></td></tr>
+            </tbody>
+          </table></div>
+          <p class="note" style="margin-top:12px">Отрезать шнур у чайника — 9 секунд и +62,4 ₸: это 416 ₸ в минуту, в 7 раз больше ставки. А смартфон, обычную плату ноутбука и экраны дерево вскрывать запрещает.</p>
+        </div>
+      </div>
+
+      <div class="ledger compact">
+        <div><span class="n">1 890&nbsp;<small>ч</small></span><p>нужно, чтобы «разобрать всё» в пилоте. У хаба есть 1 300 ч</p></div>
+        <div><span class="n">+4,76&nbsp;<small>млн ₸</small></span><p>дерево лучше, чем «разобрать всё»: 4 764 960 ₸ за пилот</p></div>
+        <div><span class="n">+325 380&nbsp;<small>₸</small></span><p>только шнуры и провода, без вскрытия корпусов: +13% к сырью за 17,3 ч работы</p></div>
+      </div>
+      <p class="note">Стена — ESP32, 12 светодиодных линеек WS2812B, блок питания и весы с точностью 1 г: 14 938 ₸ из резерва. Ящик копит партию для своего покупателя, у партии есть паспорт: вес, устройства, батареи внутри (UN3481 или UN3480) и категория РОП.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec tint" id="extend">
+  <div class="wrap">
+    <div class="stage-head">
+      <div class="stage-no">4<small>Ұзарт · продли</small></div>
+      <div>
+        <h2>Продли: отходов становится меньше, только если вещь живёт дольше</h2>
+        <blockquote>Вещь становится мусором в тот день, когда её решили не чинить. В этот день SAQTA спрашивает вещь, сколько ей осталось жить, и считает в тенге: год жизни с деталью из Банка против года жизни новой вещи.</blockquote>
+      </div>
+    </div>
+    <div class="sec-body stack">
+      <div class="two">
+        <div class="formula">W = N × m ÷ L<small>W — тонны отходов в год, N — вещей в городе, m — масса вещи, L — срок службы. Сбор и сортировка меняют судьбу отходов, но не их количество. Количество уменьшает только L.</small></div>
+        <div>
+          <span class="out-cap">если техника города живёт на 10% дольше</span>
+          <div class="out-big pos" style="font-size:56px">−364 т в год</div>
+          <p>Это больше, чем весь сбор пилота за полгода — 229,6 т. По Экологическому кодексу РК (ст. 329) предотвращение отходов — первая ступень их иерархии.</p>
+        </div>
+      </div>
+
+      <div class="widget" id="life">
+        <div class="widget-head"><h3>Продлить или сдать? Бочка Либиха</h3><span class="mono">вещь живёт до самой короткой доски: T = min Tᵢ</span></div>
+        <div class="widget-body">
+          <div>
+            <div class="chips" data-life-cases></div>
+            <div class="field"><label for="lifeAge">Возраст вещи <output id="lifeAgeo"></output></label><input id="lifeAge" type="range" min="0.5" max="16" step="0.5"></div>
+            <div class="field" id="lifeSohField"><label for="lifeSoh">Здоровье батареи по чипу <output id="lifeSoho"></output></label><input id="lifeSoh" type="range" min="40" max="100" step="0.1"></div>
+            <figure class="curve" id="lifeCurve"><svg viewBox="0 0 320 150" role="img" aria-label="Кривая здоровья батареи"></svg><figcaption>Батарея теряет ёмкость как √t: плёнка SEI на аноде растёт как корень из времени (Ploehn, Ramadass, White, 2004). Одного чтения чипа хватает, чтобы узнать, когда батарея именно этого хозяина дойдёт до 80%.</figcaption></figure>
+          </div>
+          <div aria-live="polite">
+            <ul class="staves" id="lifeStaves"></ul>
+            <div class="scale"><span>0</span><span>2,5 года</span><span>5 лет</span><span>7,5 года</span><span>10 лет</span></div>
+            <div class="verdict" id="lifeVerdict"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two">
+        <div>
+          <h3>Закон минимума для школьного класса</h3>
+          <p>Школы покупают ноутбуки партией одной модели — детали в такой партии взаимозаменяемы. Без покупок собирается столько рабочих ноутбуков, сколько живых деталей самого редкого вида. Пример: класс из 12 ноутбуков закупки 2021 года.</p>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Деталь</th><th class="num">Живых</th><th>Докупить</th></tr></thead>
+            <tbody>
+              <tr><td>Плата</td><td class="num">11</td><td>не покупаем: плата — это сама вещь</td></tr>
+              <tr><td>Экран</td><td class="num">10</td><td>только с доноров</td></tr>
+              <tr><td>Клавиатура</td><td class="num">11</td><td>только с доноров</td></tr>
+              <tr class="hl"><td>Батарея от 80%</td><td class="num">4</td><td>6 × 12 500 ₸</td></tr>
+              <tr><td>Зарядка</td><td class="num">8</td><td>2 × 4 990 ₸</td></tr>
+            </tbody>
+          </table></div>
+          <p style="margin-top:16px"><b>10 ноутбуков за 249 800 ₸</b> вместо 3 479 880 ₸ за новые. Год работы — 12 856 ₸ против 77 331 ₸, в 6 раз дешевле. Два оставшихся ноутбука — доноры для Банка деталей.</p>
+        </div>
+        <div>
+          <h3>Что даст пилот</h3>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Канал</th><th class="num">Вещей</th><th class="num">Отходов не родится</th></tr></thead>
+            <tbody>
+              <tr><td>«Подожди — можно продлить» на экране «Сдать»</td><td class="num">253</td><td class="num">0,78 т</td></tr>
+              <tr><td>«Обратный рейс» → вторая семья через акимат</td><td class="num">300</td><td class="num">5,4 т</td></tr>
+              <tr><td>Школы: закон минимума</td><td class="num">100</td><td class="num">0,1 т</td></tr>
+              <tr class="total"><td>Итого</td><td class="num">653</td><td class="num">6,3 т</td></tr>
+            </tbody>
+          </table></div>
+          <p style="margin-top:16px">Ещё 13,6 т не придут в мусор за время пилота. Жители, которые продлят вещи, сохранят ≈ 20,3 млн ₸ — вдвое больше бюджета пилота. Школы отложат закупку на 34,8 млн ₸. Денег сверх бюджета этап не просит.</p>
+          <p class="note">Обратный билет: продлённая вещь остаётся в системе с паспортом. Когда она всё-таки умрёт, её сдают в один тап, а не кладут в ящик стола.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="economy">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>04</b>Экономика</p>
+      <div>
+        <h2>Проверка из убытка становится плюсом</h2>
+        <p>Все суммы считает одна модель-скрипт, поэтому цифры во всех разделах сходятся. Ставка труда — из кейса: 900 ₸ за 15 минут, то есть 60 ₸ в минуту.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="two">
+        <div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Показатель</th><th class="num">Кейс</th><th class="num">SAQTA</th></tr></thead>
+            <tbody>
+              <tr><td>Обработка одного устройства</td><td class="num">3 000 ₸</td><td class="num"><span class="pos">206 ₸</span></td></tr>
+              <tr><td>Проверка ячейки</td><td class="num">15 мин, 900 ₸</td><td class="num"><span class="pos">30 с, ≈ 38 ₸</span></td></tr>
+              <tr><td>Разборка ноутбука</td><td class="num">25–30 мин</td><td class="num"><span class="pos">≈ 9 мин</span></td></tr>
+              <tr><td>Результат на устройство</td><td class="num"><span class="neg">−1 800 ₸</span></td><td class="num"><span class="pos">+177 ₸</span></td></tr>
+              <tr><td>Доля переработки</td><td class="num">20%</td><td class="num"><span class="pos">≈ 37%</span></td></tr>
+            </tbody>
+          </table></div>
+          <div class="cap">
+            <h4>Мощность хаба</h4>
+            <div class="cap-track" role="img" aria-label="Загрузка хаба 88 процентов"><div class="cap-fill"><span>1 146 ч</span></div></div>
+            <p class="note">На 20 000 устройств нужно 1 146 часов работы рук из 1 300: мастер — 660 ч, техник — 640 ч. Загрузка 88%, запас дают практиканты колледжей.</p>
+          </div>
+        </div>
+        <div>
+          <h4>Чистая выручка пилота по сценариям</h4>
+          <div class="seg" role="group" aria-label="Сценарий" id="scenSeg">
+            <button type="button" data-s="pess" aria-pressed="false">Пессимистичный</button>
+            <button type="button" data-s="care" aria-pressed="false">Осторожный</button>
+            <button type="button" data-s="base" aria-pressed="true">Базовый</button>
+          </div>
+          <div class="scen" aria-live="polite">
+            <div><span class="out-cap">устройств в хабе</span><span class="v" id="scDev">20 000</span></div>
+            <div><span class="out-cap">чистая выручка</span><span class="v" id="scRev">7 657 918 ₸</span></div>
+            <div><span class="out-cap">возврат бюджета</span><span class="v" id="scRet">77%</span></div>
+          </div>
+          <p class="note" style="margin-top:12px" id="scNote">Сбор 100% плана, продажи деталей 100%, цены 100%.</p>
+          <p style="margin-top:18px">Выручка не нужна, чтобы исполнить бюджет: 10 000 000 ₸ расписаны без неё. Из неё пополняются бонусный фонд и резерв. За 229,6 т пилота положено ≈ 21,4 млн ₸ выплат РОП на всю цепочку от сбора до переработки — это деньги на после пилота.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec tint" id="budget">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>05</b>Бюджет и сроки</p>
+      <div>
+        <h2>10 000 000 ₸ за 6 месяцев — расписаны до тиына</h2>
+        <p>68 строк. Цены Kaspi и OLX по Актобе на 18.11.2026, аренда — krisha.kz, зарплаты с налогами 2026 года. Почти половина денег — зарплаты трёх человек.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="tbl-wrap"><table id="budgetTable">
+        <thead><tr><th>Статья</th><th class="num">Сумма</th><th class="num">Доля</th><th>Когда тратим</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="note" style="margin-top:12px">Сортировочная стена этапа 3 (14 938 ₸) берётся из резерва: после неё в резерве остаётся 378 621 ₸.</p>
+
+      <div class="timeline">
+        <div><b>М1</b><span class="m">Январь</span><p>Подготовка: помещение 50 м², оборудование, договоры, опрос жителей «до».</p></div>
+        <div><b>М2</b><span class="m">Февраль</span><p>Старт хаба и вывоза крупной техники, школы Донор-лиги и боксы.</p></div>
+        <div class="peak"><b>М3</b><span class="m">Март</span><p>Тазару күні: неделя сдачи с двойными бонусами. С марта в хабе работает техник.</p></div>
+        <div><b>М4</b><span class="m">Апрель</span><p>Рабочий темп: триаж, Банк деталей, заявки мастерских.</p></div>
+        <div><b>М5</b><span class="m">Май</span><p>Партии с паспортом — скупщикам и переработчику.</p></div>
+        <div><b>М6</b><span class="m">Июнь</span><p>Опрос «после» и отчёт акимату.</p></div>
+      </div>
+      <p class="note" style="margin-top:12px">Пилот — январь–июнь 2027 года, так что Тазару күні приходится на третий месяц.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="results">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>06</b>Результаты</p>
+      <div>
+        <h2>Что изменится за полгода и как мы это измерим</h2>
+        <p>Каждую цифру меряем каждую неделю на панели акимата.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Показатель</th><th>Было</th><th>Цель пилота</th><th>Как меряем</th></tr></thead>
+        <tbody>
+          <tr><td>Техника, выведенная из мусора</td><td>—</td><td><b>229,6 т</b> за 6 месяцев</td><td>акты с весом от партнёров и весы хаба</td></tr>
+          <tr><td>Доля переработки</td><td>20%</td><td><b>≈ 37%</b> на рабочем темпе</td><td>тонны за год ÷ 4 000 т</td></tr>
+          <tr><td>Точки сбора</td><td>0</td><td>40 школ, 5 боксов, 200 домов ОСИ, магазины</td><td>договоры и карта в приложении</td></tr>
+          <tr><td>Знают, куда сдавать</td><td>30%</td><td>от 60%</td><td>опрос 500 жителей до и 500 после</td></tr>
+          <tr><td>Хранят технику дома</td><td>45%</td><td>≈ 40%</td><td>тот же опрос</td></tr>
+          <tr><td>Обработка одного устройства</td><td>3 000 ₸</td><td><b>206 ₸</b></td><td>таймер операций в панели хаба × 60 ₸ в минуту</td></tr>
+          <tr><td>Проверка ячейки</td><td>15 мин, 900 ₸</td><td>30 с, ≈ 38 ₸</td><td>журнал стенда ТЕСТ-30</td></tr>
+          <tr><td>Результат на одно устройство</td><td>−1 800 ₸</td><td><b>+177 ₸</b></td><td>чистая выручка на устройство минус обработка</td></tr>
+          <tr><td>Детали на вторую жизнь</td><td>—</td><td>8 040 в банке, около 3 600 продано</td><td>QR-паспорта и продажи</td></tr>
+          <tr><td>Устройства целиком</td><td>—</td><td>1 544, из них 618 детям и семьям</td><td>акты передачи через акимат</td></tr>
+          <tr><td>Ячейки, проверенные стендом</td><td>—</td><td>5 610</td><td>журнал стенда</td></tr>
+          <tr><td>Возвраты по гарантии</td><td>—</td><td>не больше 3%</td><td>Банк деталей: каждый возврат с номером проверки</td></tr>
+          <tr><td>Носители с сертификатом стирания</td><td>—</td><td>100%</td><td>сертификаты в приложении</td></tr>
+          <tr><td>Возгорания</td><td>—</td><td>0</td><td>журнал хаба</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec tint" id="risks">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>07</b>Риски</p>
+      <div>
+        <h2>Что может пойти не так и что мы делаем</h2>
+        <p>Главный риск — магазины не согласятся на «Обратный рейс». Но и тогда «Тонны» работают через ОСИ, заявки жителей и склады организаций.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="risks">
+        <div><span class="k">Организационный</span><h4>Люди сдают меньше, чем планировали</h4><p>Главные каналы не требуют идти в пункт: доставка, бак, школа. Галочка по умолчанию, Тазару күні, бонусы. Даже в пессимистичном сценарии бюджет исполняется.</p></div>
+        <div><span class="k">Финансовый</span><h4>Детали не продаются</h4><p>Снимаем только под заявку. Непроданное за 90 дней уходит на переработку. Выручка не нужна для исполнения бюджета.</p></div>
+        <div><span class="k">Финансовый, юридический</span><h4>Бонусами злоупотребляют</h4><p>Бонусы — только после проверки в хабе. За кабели и зарядки бонусов нет. Лимит 10 устройств в месяц, проверка IMEI, подтверждённый номер телефона.</p></div>
+        <div><span class="k">Технический</span><h4>Пожар от аккумулятора</h4><p>Металлический шкаф с песком, огнетушители, вздутые батареи сразу в «Опасно», никакой зарядки без присмотра, страховка.</p></div>
+        <div><span class="k">Юридический</span><h4>Утечка данных со сданных устройств</h4><p>Стирание по NIST SP 800-88 или физическое уничтожение носителя, сертификат донору в приложении.</p></div>
+        <div><span class="k">Юридический</span><h4>Нарушение экологических правил</h4><p>Уведомление о сборе и сортировке, договоры с лицензированными переработчиками, хранение в сроки Экокодекса, эколог в бюджете.</p></div>
+        <div><span class="k">Технический</span><h4>Стенд неверно оценивает ячейку</h4><p>Калибровка на эталонных анализаторах, спорные ячейки — на полный цикл, 7 дней проверки саморазряда перед продажей.</p></div>
+        <div><span class="k">Организационный</span><h4>Не хватает рук в хабе</h4><p>Загрузка 88%, запас дают практиканты колледжей. Дерево разборки запрещает убыточную работу, карты разборки сокращают обучение.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="demo">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>08</b>Прототип</p>
+      <div>
+        <h2>Приложение уже работает — в браузере и без интернета</h2>
+        <p>Житель, магазин, ОСИ, хаб и акимат в одном приложении. Оно открывается одним файлом без сети: карта Актобе, QR-коды и распознавание вида техники по фото — внутри.</p>
+      </div>
+    </div>
+    <div class="phones">
+      <figure class="phone"><div class="frame"><img src="{{IMG:app-home}}" alt="Главный экран жителя: карта донора, бонусы, кнопки «Сдать технику» и «Вывоз»" width="390" height="844" loading="lazy"></div><figcaption><b>Житель</b>Карта донора, сдача по фото, вывоз крупной техники</figcaption></figure>
+      <figure class="phone"><div class="frame"><img src="{{IMG:app-wallet}}" alt="Кошелёк: 1 320 бонусов и уведомление «Твой ноутбук спас 3 устройства»" width="390" height="844" loading="lazy"></div><figcaption><b>Кошелёк</b>Бонусы, роялти 10% с проданных деталей, вывод на карту</figcaption></figure>
+      <figure class="phone"><div class="frame"><img src="{{IMG:app-extend}}" alt="Экран «Продлить жизнь»: возраст, здоровье батареи, тип диска" width="390" height="844" loading="lazy"></div><figcaption><b>Продлить жизнь</b>Бочка Либиха и цена года жизни для вещи жителя</figcaption></figure>
+      <figure class="phone"><div class="frame"><img src="{{IMG:app-hub}}" alt="Хаб: 206 тенге на устройство, проверка ячейки 38 тенге, очередь триажа" width="390" height="844" loading="lazy"></div><figcaption><b>Хаб</b>Триаж, «Спроси устройство», ТЕСТ-30, сортировочная стена</figcaption></figure>
+    </div>
+    <figure class="wide-shot"><div class="frame"><img src="{{IMG:app-akimat}}" alt="Панель акимата: тонны по каналам, доля переработки 37%, рейтинг школ" width="1280" height="800" loading="lazy"></div><figcaption><b>Панель акимата</b> — тонны по каналам, деньги РОП, рейтинг школ Донор-лиги и калькулятор сокращения отходов.</figcaption></figure>
+
+    <div class="try">
+      <div>
+        <h3>Откройте сами</h3>
+        <p><b>smqlr.github.io/SAQTA</b> — открывается в любом браузере, вход не нужен. На телефоне: «Поделиться» → «На экран „Домой“», после первого открытия работает без сети. Без интернета — файл <span class="mono">dist/saqta.html</span> с флешки двойным кликом.</p>
+        <div class="actions">
+          <a class="btn solid" href="https://smqlr.github.io/SAQTA/" target="_blank" rel="noopener">Открыть приложение <span class="arrow">↗</span></a>
+          <button class="btn" type="button" id="liveBtn">Запустить прямо здесь</button>
+          <a class="btn" href="https://github.com/smqlr/SAQTA" target="_blank" rel="noopener">Код и расчёты на GitHub <span class="arrow">↗</span></a>
+        </div>
+      </div>
+      <div class="qr" aria-label="QR-код со ссылкой на приложение">{{QR}}</div>
+    </div>
+    <div class="live" id="live"><div class="device"></div></div>
+  </div>
+</section>
+
+<section class="sec tint" id="team">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>09</b>Команда</p>
+      <div>
+        <h2>Три человека, у каждого свой блок</h2>
+        <p>Каждый отвечает на вопросы жюри по своей части.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="team">
+        <div><div class="ava">Е</div><h3>Ерсултан</h3><span class="role">Лидер · приложения</span><p>Приложение жителя с бонусным кошельком, режим ОСИ «Бирка у бака», панели хаба и акимата. На защите — вступление и финал.</p></div>
+        <div><div class="ava">А</div><h3>Асмир</h3><span class="role">Расчёты и документация</span><p>Финансовая модель, бюджет до тиына, экономика бонусов, документация, живое демо «Спроси устройство». На защите — цифры и бюджет.</p></div>
+        <div><div class="ava">Ж</div><h3>Жалгасхан</h3><span class="role">Исследование и подача</span><p>Опрос жителей, звонки партнёрам — мастерская, скупка, магазин техники. Презентация и видео демо. На защите — демо.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="sources">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker"><b>10</b>Источники</p>
+      <div><h2>Откуда цифры</h2><p>У каждой цифры в приложении есть источник, а скрипты в репозитории сверяют расчёты с документацией.</p></div>
+    </div>
+    <div class="sec-body">
+      <ol class="sources">
+        <li>Кейс Hack.IT 2026, трек STEM, «Электронные отходы»: 500 000 жителей, 4 000 т в год, 20% переработки, проверка 3 000 ₸, ячейка 15 мин и 900 ₸, 70% и 45%.</li>
+        <li>Global E-waste Monitor 2024 (ITU, UNITAR) — доли массы и переработки по видам техники.</li>
+        <li>Экологический кодекс РК: ст. 351 п. 17 — электронику нельзя захоранивать на полигоне; ст. 329 — иерархия отходов.</li>
+        <li>Постановление Правительства РК № 1250 от 29.12.2023 — ставки РОП; МРП 2026 года — 4 325 ₸.</li>
+        <li>Kaspi Магазин и OLX.kz по Актобе, 4–19.11.2026 — цены деталей, новых вещей, работы мастерских и прайсы скупщиков. Номера объявлений — в репозитории.</li>
+        <li>krisha.kz — аренда помещения; Национальный банк РК — курс 444,30 ₸ за доллар на 14.11.2026.</li>
+        <li>WRAP — доля сданной техники, годной к повторному использованию.</li>
+        <li>Material Focus, опрос 2 000 человек, 2024 — как люди хотят сдавать технику.</li>
+        <li>Ploehn, Ramadass, White, 2004 — рост плёнки SEI как √t и потеря ёмкости батареи.</li>
+        <li>EEB, 2019 — средние сроки службы: телефон 3 года, ноутбук 4,5 года.</li>
+        <li>IBM Research, UrJar — большинство выброшенных батарей ноутбуков годно для повторного использования.</li>
+        <li>NIST SP 800-88 — стирание и уничтожение носителей данных.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span><b>SAQTA</b> — Собери. Спроси. Спаси. · Жина. Сұра. Сақта.</span>
+    <span>Hack.IT 2026 · трек STEM · кейс «Электронные отходы» · Актобе</span>
+    <span>Расчёты — <a href="https://github.com/smqlr/SAQTA" target="_blank" rel="noopener">github.com/smqlr/SAQTA</a></span>
+  </div>
+</footer>
+
+<script>/*JS*/</script>
+</body>
+</html>
