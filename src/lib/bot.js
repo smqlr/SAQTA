@@ -3,9 +3,9 @@
 // словарь из 60+ видов техники с синонимами и брендами (bot-devices.js). Понимает опечатки, падежи,
 // казахские вопросы и уточнения вроде «а за ноутбук?». Если в профиле указан сервер SAQTA (server/worker.js),
 // вопрос уходит в Claude через этот сервер; при ошибке сети — снова база знаний.
-import { BONUS, SCHOOL_LEAGUE, EXTEND, GENERIC_PARTS, DEVICE_TYPES, PARTS } from '../data.js';
+import { BONUS, SCHOOL_LEAGUE, EXTEND, GENERIC_PARTS, DEVICE_TYPES, PARTS, TYPE_KG } from '../data.js';
 import { num } from './format.js';
-import { INTENTS, OFFTOPIC, pick } from './bot-kb.js';
+import { INTENTS, OFFTOPIC, pick, kg } from './bot-kb.js';
 import { DEVICES } from './bot-devices.js';
 
 const API_KEY = 'saqta-api';
@@ -21,7 +21,7 @@ const norm = (s) => String(s).toLowerCase().replace(/ё/g, 'е').replace(new Reg
 const tokens = (s) => norm(s).split(' ').filter(Boolean);
 
 // Слова-паразиты и служебные слова: на смысл вопроса не влияют
-const STOP = new Set('а и но или же ли бы вот ну слушай слушайте скажи скажите подскажи подскажите пожалуйста пж плиз мне меня мной я ты тебе тебя у в во на с со к ко о об обо от из это этот эта эти этих то тот так там тут здесь есть был была было были будет очень просто еще уже вообще типа короче мой моя мое мои моего моей моих свой своя свои его ее их он она оно они мы вы вас нас нам вам им ему ей тоже также все весь вся всех че чо щас ведь вообщем блин кстати либо хотя дома'.split(' '));
+const STOP = new Set('а и но или же ли бы вот ну слушай слушайте скажи скажите подскажи подскажите пожалуйста пж плиз мне меня мной я ты тебе тебя у в во на с со к ко о об обо от из это этот эта эти этих то тот так там тут здесь есть был была было были будет очень просто еще уже вообще типа короче мой моя мое мои моего моей моих свой своя свои его ее их он она оно они мы вы вас нас нам вам им ему ей тоже также все весь вся всех че чо щас ведь вообщем блин кстати либо хотя дома старый старая старое старые старого старой старую старых старым старыми если'.split(' '));
 const PRONOUN = new Set('него нее его ее им ней нем них их он она оно это этот эту такой такую такие'.split(' '));
 
 // ── Лёгкий стеммер русского (по мотивам Snowball, без lookbehind — для старых iPhone) ──
@@ -83,7 +83,7 @@ function lev(a, b, max) {
 
 // ── Индекс базы знаний: стеммы примеров и их вес (IDF) ──────────────────────
 const contentStems = (s) => tokens(s).filter((w) => !STOP.has(w)).map(stem);
-const IDX = INTENTS.map((it) => ({ it, ex: it.q.map((q) => [...new Set(contentStems(q))]).filter((e) => e.length), k: (it.k || []).map(norm) }));
+const IDX = INTENTS.map((it) => ({ it, ex: it.q.map((q) => [...new Set(contentStems(q))]).filter((e) => e.length), k: (it.k || []).map(norm), need: (it.need || []).map(norm) }));
 const DF = new Map();
 for (const x of IDX) for (const s of new Set(x.ex.flat())) DF.set(s, (DF.get(s) || 0) + 1);
 const NI = IDX.length;
@@ -126,6 +126,7 @@ function scoreIntents(qStems, qWords) {
       if (c > best) best = c;
     });
     if (x.k.length && qWords.some((w) => x.k.some((k) => (k.length <= 3 ? w === k : w.startsWith(k))))) best += 0.18;
+    if (x.need.length && !qWords.some((w) => x.need.some((n) => w.startsWith(n)))) best = 0;
     out.push({ it: x.it, s: best });
   }
   return out.sort((a, b) => b.s - a.s);
@@ -137,7 +138,7 @@ const tokMatch = (q, s, typo = true) => {
   if (q === s) return true;
   if (s.length <= 3 || q.length <= 3) return false; // короткие (тв, пк, aa) — только целым словом
   if (q.startsWith(s) && s.length >= 4) return true; // падежи и казахские окончания: телефонды, холодильникті
-  if (stem(q) === stem(s)) return true;
+  if (s.length >= 5 && stem(q) === stem(s)) return true; // у коротких основа слишком общая: «пока» ≠ «поко»
   // опечатка — только если слово вопроса не обычное слово из базы («система» ≠ «системка»)
   return typo && s.length >= 6 && q.length >= 5 && !DF.has(stem(q)) && lev(q, s, 1) <= 1;
 };
@@ -147,6 +148,7 @@ function findDevices(qt) {
   for (const { d, t } of DEV_SYN) {
     for (let i = 0; i + t.length <= qt.length; i++) {
       if (t.some((s, k) => used.has(i + k) || !tokMatch(qt[i + k], s))) continue;
+      if (qt[i] === 'часы' && /^(работ|прием|приём|открыт)/.test(qt[i + 1] || '')) continue; // «часы работы» — не вещь
       t.forEach((_, k) => used.add(i + k));
       if (!found.some((f) => f.d === d)) found.push({ d, at: i, len: t.length });
       break;
@@ -192,6 +194,9 @@ const DEV_ANSWER = {
     const tips = d.tip || tipsFor(d);
     return `${d.name}: сдай ${WHERE}. Ближайшую точку покажет «Карта».\n\n${bonusLine(d)}${tips ? `\n\n${tips}` : ''}`;
   },
+  weight(d) {
+    return `${d.name}: в модели SAQTA средний вес такой вещи — около ${kg(TYPE_KG[d.type] ?? TYPE_KG.small)} кг. Точный вес покажет акт взвешивания при приёмке или вывозе.`;
+  },
   value(d) {
     const parts = GENERIC_PARTS[d.type] || GENERIC_PARTS.small;
     const gold = d.type === 'phone' || d.type === 'laptop' ? ' В платах есть немного золота, серебра, меди и палладия — но главная ценность в живых деталях.' : '';
@@ -207,7 +212,8 @@ const DEV_ANSWER = {
   accept(d) {
     if (d.no) return NOT_ACCEPTED[d.no]();
     const how = d.type === 'big' || d.id === 'crt' ? 'Оформи вывоз — заберём бесплатно.' : `Сдай ${WHERE}.`;
-    return `Да, ${d.acc} принимаем — даже в нерабочем состоянии: живые детали снимут под заказ мастерских, остальное уйдёт лицензированному переработчику. ${how}\n\n${bonusLine(d)}`;
+    const tips = d.tip || tipsFor(d);
+    return `Да, ${d.acc} принимаем — даже в нерабочем состоянии: живые детали снимут под заказ мастерских, остальное уйдёт лицензированному переработчику. ${how}\n\n${bonusLine(d)}${tips ? `\n\n${tips}` : ''}`;
   },
   danger(d) {
     if (d.no) return NOT_ACCEPTED[d.no]();
@@ -328,14 +334,22 @@ export function localAnswer(q) {
   const allStems = content.map(stem);
   const noDevStems = qt.filter((w, i) => !STOP.has(w) && !used.has(i)).map(stem);
   const scoredAll = scoreIntents(allStems, qt);
-  const scoredNoDev = d ? scoreIntents(noDevStems.length ? noDevStems : allStems, qt) : scoredAll;
+  // Если вещь названа, темы оцениваем по остальным словам: «у меня есть старый компьютер» — про компьютер,
+  // а не про «как стереть компьютер»; темы про вещь — по лучшему из двух вариантов
+  const scoredNoDev = d ? (noDevStems.length ? scoreIntents(noDevStems, qt) : scoredAll.map((x) => ({ it: x.it, s: 0 }))) : scoredAll;
+  const noDevScore = new Map(scoredNoDev.map((x) => [x.it.id, x.s]));
   // темы про вещь оцениваем без названия вещи («куда сдать холодильник» = «куда сдать»)
   const devScore = new Map(scoredNoDev.filter((x) => x.it.dev).map((x) => [x.it.id, x.s]));
-  const ranked = scoredAll.map((x) => ({ it: x.it, s: x.it.dev && d ? Math.max(x.s, devScore.get(x.it.id) || 0) : x.s })).sort((a, b) => b.s - a.s);
+  const ranked = scoredAll.map((x) => ({ it: x.it, s: !d ? x.s : x.it.dev ? Math.max(x.s, devScore.get(x.it.id) || 0) : noDevScore.get(x.it.id) || 0 })).sort((a, b) => b.s - a.s);
   const best = ranked[0];
   const hasPronoun = qt.some((w) => PRONOUN.has(w));
   const done = (text, extra = {}) => ({ text, go: null, src: SRC, ...extra });
 
+  // «Сколько у меня бонусов» — про свой баланс, а не про таблицу бонусов
+  if (!d && /(^| )(у меня|мои|мой|моих|моем|моём)( |$).*бонус|баланс|накопил/.test(qt.join(' '))) {
+    const it = INTENTS.find((i) => i.id === 'balance');
+    return done(answerText(it, kz), { go: it.go });
+  }
   // 0) Время, дата и счёт — по точным шаблонам, раньше тем («который час» ≠ «часы работы»)
   const tm = timeAnswer(qt);
   if (tm) return done(tm, { chips: SUGGEST.slice(0, 3) });
@@ -346,7 +360,7 @@ export function localAnswer(q) {
   // прошлую вещь берём только по местоимению («а сколько за него?»); «Как стереть данные?» — общий вопрос
   const target = d || (hasPronoun && ctx.dev) || null;
   if (best && best.s >= TH && best.it.dev && target) {
-    const second = ranked.slice(1).find((x) => x.it.dev && x.it.dev !== best.it.dev && x.s >= Math.max(TH, best.s * 0.75));
+    const second = ranked.slice(1).find((x) => x.it.dev && x.it.dev !== best.it.dev && x.s >= Math.max(TH, best.s * 0.6));
     const kinds = [best.it.dev, ...(second ? [second.it.dev] : [])];
     let kind = best.it.dev;
     let text;
