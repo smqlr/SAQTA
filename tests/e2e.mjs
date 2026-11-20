@@ -488,7 +488,7 @@ if (!(await page.$('#photoInput'))) await page.click('[data-go="start"]');
 await page.setInputFiles('#photoInput', join(root, 'src/assets/photos/kettle.webp'));
 await page.waitForSelector('.guess-i, .notice.warn', { timeout: 90000 });
 const top = (await page.textContent('.guess-i[aria-pressed="true"] b').catch(() => '')) || '';
-ok(/Чайник/.test(top), `MobileNet в браузере узнал чайник: «${top.trim()}»`);
+ok(/Чайник/.test(top), `ИИ в браузере (MobileCLIP) узнал чайник: «${top.trim()}»`);
 await page.click('[data-cond="dead"]');
 await page.click('[data-ai-next]');
 ok((await page.textContent('#view')).includes('Что будет с вещью'), 'после фото — карточка и путь вещи');

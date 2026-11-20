@@ -4,7 +4,7 @@
 // Здесь нет импорта SDK: клиент передаётся снаружи (worker.js), поэтому логику можно проверить тестом без сети.
 
 export const MODEL = 'claude-opus-5-5';
-export const GROUPS = 'phone, pda, laptop, pc, monitor, tv, fridge, washer, dishwasher, stove, microwave, kettle, iron, vacuum, dryer, heater, speaker, player, watch, camera, console, remote, router, peripheral, printer, projector, disk, tool, lamp';
+export const GROUPS = 'phone, tablet, ebook, pda, laptop, pc, monitor, tv, fridge, washer, dishwasher, stove, ac, microwave, kettle, coffee, blender, toaster, multicooker, iron, vacuum, dryer, fan, heater, sewing, headphones, speaker, player, watch, clock, camera, console, remote, calculator, microphone, synth, landline, router, peripheral, printer, projector, disk, tool, lamp, flashlight, battery, charger';
 const MAX_CONTINUATIONS = 3; // продолжения после pause_turn (поиск длиннее одного круга)
 
 export const SYSTEM_VISION = `Ты распознаёшь технику на фото для пункта приёма SAQTA (Актобе, Казахстан).

@@ -2,13 +2,29 @@
 // 1) Сервер SAQTA с Claude (если подключён в профиле): модель, поломки, детали — и поиск этой модели
 //    в магазинах и каталогах по всему миру, со ссылками на источники.
 // 2) Без сервера, но с интернетом: штрихкод на фото (или цифры вручную) → открытые базы товаров.
-// 3) ИИ в телефоне (MobileNet v2, без интернета): вид техники. Движок, веса и читалка штрихкодов грузятся
-//    при первом фото: в офлайн-файле они внутри HTML, на GitHub Pages — файлы в папке ai/.
-import { topGroups, GROUPS } from './ai-map.js';
+// 3) ИИ в телефоне (без интернета): вид техники — 47 видов и «не техника». Основной движок — MobileCLIP-S0
+//    с головой, обученной на ~29 000 фото техники; запасной — MobileNet v2 с такой же головой (src/ai/engine.js).
+//    Движок, веса и читалка штрихкодов грузятся при первом фото: в офлайн-файле они внутри HTML,
+//    на GitHub Pages — файлы в папке ai/.
+import { headGroups, GROUPS } from './ai-map.js';
 import { getApi } from './bot.js';
 import { lookupBarcode, validCode } from './barcode.js';
 
 let loading = null;
+
+// Файл движка: из офлайн-HTML (base64, иногда gzip) или с GitHub Pages (папка ai/)
+async function asset(id, url, gz = false) {
+  const el = document.getElementById(id);
+  if (!el) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Не удалось загрузить ${url}`);
+    return r.arrayBuffer();
+  }
+  const buf = b64ToBuffer(el.textContent);
+  if (!gz) return buf;
+  if (typeof DecompressionStream === 'undefined') throw new Error('Нет DecompressionStream');
+  return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+}
 
 function b64ToBuffer(b64) {
   const bin = atob(b64.replace(/\s+/g, ''));
@@ -37,18 +53,25 @@ export function loadEngine(onStage = () => {}) {
     onStage('Загружаю ИИ в телефон…');
     const inlineJs = document.getElementById('saqta-ai-js');
     if (!window.SAQTA_AI) await addScript(inlineJs ? { text: inlineJs.textContent } : { src: 'ai/engine.js' });
-    const inlineW = document.getElementById('saqta-ai-w');
-    let weights;
-    if (inlineW) weights = b64ToBuffer(inlineW.textContent);
-    else {
-      const r = await fetch('ai/mobilenet.bin');
-      if (!r.ok) throw new Error('Не удалось загрузить веса ИИ');
-      weights = await r.arrayBuffer();
+    const ai = window.SAQTA_AI;
+    // Основной движок — MobileCLIP (WebAssembly). Не завёлся (старый браузер без SIMD и т. п.) — MobileNet.
+    try {
+      if (window.SAQTA_FORCE_MOBILENET) throw new Error('MobileNet по просьбе');
+      onStage(document.getElementById('saqta-ai-cw') ? 'Загружаю нейросеть MobileCLIP…' : 'Загружаю нейросеть MobileCLIP (23 МБ, один раз)…');
+      const [wasm, graph, weights] = await Promise.all([
+        asset('saqta-ai-ort', 'ai/ort.wasm', true),
+        asset('saqta-ai-cg', 'ai/mclip.onnx'),
+        asset('saqta-ai-cw', 'ai/mclip.f16'),
+      ]);
+      onStage('Запускаю нейросеть…');
+      await ai.loadClip({ wasm, graph, weights });
+    } catch (e) {
+      console.warn('MobileCLIP не запустился, включаю MobileNet:', e);
+      onStage('Запускаю запасную нейросеть…');
+      await ai.load(await asset('saqta-ai-w', 'ai/mobilenet.bin'));
     }
-    onStage('Запускаю нейросеть…');
-    await window.SAQTA_AI.load(weights);
-    window.SAQTA_AI.ready = true;
-    return window.SAQTA_AI;
+    ai.ready = true;
+    return ai;
   })();
   loading.catch(() => { loading = null; });
   return loading;
@@ -74,18 +97,31 @@ function loadBarcodeReader(ai) {
   return bcLoading;
 }
 
-// Фото → квадрат 224×224 по центру (как видит MobileNet)
-async function toCanvas(file, size = 224) {
+// Фото → кадры size×size, как при обучении: квадрат по центру и всё фото с белыми полями (вещь у края кадра
+// не потеряется). Ответ — среднее по кадрам: так точнее на 2–3 процентных пункта.
+async function views(file, size) {
   const bmp = await createImageBitmap(file);
-  const s = Math.min(bmp.width, bmp.height);
-  const c = document.createElement('canvas');
-  c.width = size; c.height = size;
-  const g = c.getContext('2d');
-  g.fillStyle = '#fff';
-  g.fillRect(0, 0, size, size);
-  g.drawImage(bmp, (bmp.width - s) / 2, (bmp.height - s) / 2, s, s, 0, 0, size, size);
+  const W = bmp.width, H = bmp.height, s = Math.min(W, H);
+  const frame = () => {
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.fillStyle = '#fff';
+    g.fillRect(0, 0, size, size);
+    g.imageSmoothingQuality = 'high';
+    return [c, g];
+  };
+  const [c1, g1] = frame();
+  g1.drawImage(bmp, (W - s) / 2, (H - s) / 2, s, s, 0, 0, size, size);
+  const out = [c1];
+  if (Math.max(W, H) / s > 1.08) {
+    const [c2, g2] = frame();
+    const k = size / Math.max(W, H);
+    g2.drawImage(bmp, 0, 0, W, H, (size - W * k) / 2, (size - H * k) / 2, W * k, H * k);
+    out.push(c2);
+  }
   bmp.close?.();
-  return c;
+  return out;
 }
 
 // Фото → JPEG до 1024 px в base64 (для сервера)
@@ -183,12 +219,13 @@ export async function recognize(file, onStage = () => {}) {
     } catch { code = ''; }
   }
   onStage('ИИ смотрит на фото…');
-  const probs = await ai.classify(await toCanvas(file));
-  const { guesses, techness } = topGroups(probs, 3);
+  const clip = ai.clipReady();
+  const probs = clip ? await ai.classifyClip(await views(file, ai.clipSize)) : await ai.classifyMn(await views(file, 224));
+  const { guesses, techness } = headGroups(probs, clip ? ai.clipClasses : ai.mnClasses, 3);
   if (code) {
     onStage('Ищу товар в открытых базах…');
     const product = await lookupBarcode(code);
-    if (product) return withProduct(product, guesses, { backend: ai.backend() });
+    if (product) return withProduct(product, guesses, { backend: ai.backend(), model: ai.engine() });
   }
-  return { engine: 'device', backend: ai.backend(), guesses, techness, barcode: code };
+  return { engine: 'device', model: ai.engine(), backend: ai.backend(), guesses, techness, barcode: code };
 }

@@ -135,7 +135,8 @@ function photo() {
     <div class="scan mt-12"><img src="${ui.photoUrl}" alt="Твоё фото"><div class="beam"></div><div class="scan-cap"><span class="spinner"></span>${esc(a.stage)}</div></div>
     <div class="onb-guide" style="margin-top:6px"><div style="width:84px;flex:none">${mascot('scan', { label: 'Сактик смотрит на фото' })}</div><div class="bubble">Секунду, рассматриваю! Первый раз ИИ загружается чуть дольше.</div></div>`;
   }
-  if (a.status === 'error' || !a.result?.guesses?.length || a.result.techness < 0.06) {
+  // techness — 1 − P(«не техника»): ниже 0,35 честно говорим, что на фото не техника
+  if (a.status === 'error' || !a.result?.guesses?.length || a.result.techness < 0.35) {
     return `${head}
     <img class="photo-prev mt-12" src="${ui.photoUrl}" alt="Твоё фото">
     <div class="notice warn mt-12"><div class="ico">${ICON.info}</div><div class="small"><b>${a.status === 'error' ? 'ИИ сейчас недоступен.' : 'Не похоже на технику, которую я знаю.'}</b><br>Выбери похожую вещь в каталоге или введи модель — мастер в хабе всё проверит при приёмке.</div></div>
@@ -173,7 +174,7 @@ function aiBadge(r, top) {
   const [name, note] = r.engine === 'claude'
     ? (r.searched || top.sources?.length ? ['Claude + магазины', 'нашёл модель в магазинах и каталогах'] : ['Claude', 'распознал модель и поломки'])
     : r.engine === 'barcode' ? ['По штрихкоду', `код ${r.barcode} найден в открытых базах товаров`]
-      : ['ИИ в телефоне', 'узнаёт вид техники, без интернета'];
+      : ['ИИ в телефоне', r.model === 'mobileclip' ? 'MobileCLIP, обучен на 29 000 фото техники · без интернета' : 'узнаёт вид техники, без интернета'];
   return `<span class="ai-badge" data-testid="ai-engine">${ICON.check}${name}</span><span class="xs muted">${esc(note)}</span>`;
 }
 

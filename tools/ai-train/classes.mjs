@@ -1,0 +1,25 @@
+// Open Images класс → класс нашего классификатора
+export const OI = {
+  'Mobile phone': 'phone', 'Tablet computer': 'tablet', 'Laptop': 'laptop', 'Computer monitor': 'monitor', 'Television': 'tv',
+  'Computer keyboard': 'keyboard', 'Computer mouse': 'mouse', 'Headphones': 'headphones', 'Camera': 'camera',
+  'Microwave oven': 'microwave', 'Refrigerator': 'fridge', 'Washing machine': 'washer', 'Dishwasher': 'dishwasher',
+  'Oven': 'stove', 'Gas stove': 'stove', 'Kettle': 'kettle', 'Coffeemaker': 'coffee', 'Blender': 'blender', 'Mixer': 'blender',
+  'Food processor': 'blender', 'Toaster': 'toaster', 'Waffle iron': 'toaster', 'Slow cooker': 'multicooker', 'Pressure cooker': 'multicooker',
+  'Hair dryer': 'dryer', 'Mechanical fan': 'fan', 'Ceiling fan': 'fan', 'Heater': 'heater', 'Humidifier': 'heater',
+  'Lamp': 'lamp', 'Flashlight': 'flashlight', 'Torch': 'flashlight', 'Drill (Tool)': 'tool', 'Chainsaw': 'tool', 'Grinder': 'tool',
+  'Calculator': 'calculator', 'Watch': 'watch', 'Alarm clock': 'clock', 'Digital clock': 'clock', 'Remote control': 'remote',
+  'Printer': 'printer', 'Fax': 'printer', 'Ipod': 'player', 'Cassette deck': 'player', 'Telephone': 'landline', 'Corded phone': 'landline',
+  'Microphone': 'microphone', 'Musical keyboard': 'synth', 'Sewing machine': 'sewing', 'Hand dryer': 'other',
+  // не техника — чтобы ИИ честно говорил «это не техника»
+  'Book': 'other', 'Box': 'other', 'Envelope': 'other', 'Picture frame': 'other', 'Mirror': 'other', 'Whiteboard': 'other',
+  'Briefcase': 'other', 'Suitcase': 'other', 'Handbag': 'other', 'Backpack': 'other', 'Pencil case': 'other', 'Stapler': 'other',
+  'Ring binder': 'other', 'Chest of drawers': 'other', 'Cupboard': 'other', 'Toilet': 'other', 'Sink': 'other', 'Window': 'other',
+  'Door': 'other', 'Poster': 'other', 'Glasses': 'other', 'Sunglasses': 'other', 'Mug': 'other', 'Coffee cup': 'other', 'Bottle': 'other',
+  'Tin can': 'other', 'Vase': 'other', 'Candle': 'other', 'Toy': 'other', 'Teddy bear': 'other', 'Doll': 'other', 'Ball': 'other',
+  'Pillow': 'other', 'Footwear': 'other', 'Hat': 'other', 'Plate': 'other', 'Bowl': 'other', 'Frying pan': 'other', 'Scissors': 'other',
+  'Pen': 'other', 'Hammer': 'other', 'Wrench': 'other', 'Screwdriver': 'other', 'Human face': 'other',
+  'Cat': 'other', 'Dog': 'other', 'Houseplant': 'other', 'Flower': 'other', 'Fruit': 'other', 'Chair': 'other',
+  'Bookcase': 'other', 'Guitar': 'other', 'Cosmetics': 'other', 'Perfume': 'other', 'Coin': 'other',
+  'Tripod': 'other', 'Binoculars': 'other', 'Kitchen knife': 'other', 'Plastic bag': 'other', 'Cake': 'other',
+  'Scale': 'other', 'Wall clock': 'clock', 'Light switch': 'other', 'Power plugs and sockets': 'other', 'Paper towel': 'other',
+};
